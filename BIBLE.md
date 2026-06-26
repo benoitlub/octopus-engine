@@ -1,6 +1,6 @@
 # Bible Octopus Engine
 
-Version 0.1 — document vivant.
+Version 0.2 — document vivant.
 
 La Bible rassemble la philosophie, l'écologie, les principes d'évolution et la culture d'ingénierie d'Octopus Engine.
 
@@ -20,7 +20,7 @@ Octopus possède trois langages.
 
 ### Langage humain
 
-Il sert à expliquer : poulpe, tentacule, nid, mue, digestion, chasse.
+Il sert à expliquer : poulpe, tentacule, ventouse, organe, nid, mue, digestion, chasse.
 
 ### Langage d'architecture
 
@@ -32,29 +32,117 @@ Il sert à coder : interfaces simples, enums, schémas, contrats, tests.
 
 La métaphore ne doit jamais contaminer inutilement le runtime.
 
-## 3. Les composants
+## 3. Anatomie d'Octopus
 
-### Cerveau
+Cette section appartient au langage humain. Elle sert à expliquer le système et ne dicte pas les noms de classes, d'interfaces ou de fichiers. Voir ADR-0003.
 
-- Coordinator
-- Workflow Engine
-- State Management
+### Corps
+
+Le corps représente Octopus Engine dans son ensemble.
+
+Il contient les organes, les flux, les limites, les systèmes de protection et les moyens d'action.
+
+### Bouche
+
+La bouche représente la Gateway.
+
+Tout ce qui entre et sort passe par elle : demandes utilisateur, réponses, fichiers, permissions, accès externes.
+
+### Yeux
+
+Les yeux représentent l'observation.
+
+Ils surveillent l'environnement, repèrent les changements, détectent les opportunités et les menaces.
+
+### Cerveau central visible
+
+Le cerveau central visible représente le Conductor / Persona.
+
+Il comprend la demande, porte le ton de l'application, communique avec l'utilisateur et choisit la bonne mission.
+
+Il peut porter un nœud papillon si l'application le souhaite. Le runtime, lui, ne porte rien.
+
+### Système nerveux central
+
+Le système nerveux central représente le Coordinator Runtime.
+
+Il transmet les signaux, synchronise les étapes, donne les départs et interprète les workflows.
+
+Il n'invente pas la mission et ne décide pas du style.
+
+### Partition / Workflow
+
+Le workflow est la partition complète d'une mission.
+
+Il décrit les étapes, dépendances, conditions, capacités requises, entrées et sorties attendues.
+
+Le Coordinateur lit la partition. Il ne la compose pas.
+
+### Tentacules
+
+Les tentacules représentent les grands domaines de compétence.
+
+Elles peuvent correspondre à des familles comme : création, recherche, mémoire, analyse, communication, publication.
+
+Une tentacule n'est pas automatiquement une classe ou un module dans le code. C'est une représentation pédagogique d'un domaine d'action.
+
+### Ganglions
+
+Les ganglions représentent l'intelligence locale d'une zone spécialisée.
+
+Ils permettent une autonomie d'exécution locale : un module sait accomplir sa tâche sans demander au centre chaque microdécision.
+
+Cette autonomie n'est jamais stratégique : le module ne choisit pas le prochain module à appeler.
+
+### Ventouses
+
+Les ventouses représentent les Capabilities.
+
+Chaque ventouse sait faire une chose précise : résumer, traduire, classer, chercher, générer, publier, analyser.
+
+Les ventouses sont nombreuses, spécialisées, interchangeables et versionnées.
 
 ### Organes
 
-- Gateway
-- Guardian as middleware/policies
-- Memory Engine
-- Tracing
-- Security
-- Scheduler
-- Policy Engine
+Les organes représentent les grands systèmes internes : Memory Engine, Guardian, Scheduler, Tracing, Security, Policy Engine.
+
+Ils maintiennent la vie du moteur sans être des modules métier.
+
+### Estomac
+
+L'estomac représente la digestion des connaissances.
+
+Il transforme la donnée brute en connaissance utile, puis oublie ce qui n'a plus de valeur.
+
+### Peau et capteurs
+
+La peau et les capteurs représentent les Connectors.
+
+Ils touchent le monde extérieur : Notion, GitHub, Gmail, Google, Meta, fichiers, bases de données, API, providers IA.
+
+Ils captent et transmettent. Ils ne décident rien.
+
+### Système immunitaire
+
+Le système immunitaire représente Guardian.
+
+Il observe, alerte, limite, isole, suspend ou bloque lorsqu'un danger l'exige.
+
+Il protège la survie du système, mais ne décide jamais du métier.
+
+## 4. Composants techniques
+
+### Engine
+
+Octopus Engine désigne le code partagé, les contrats, les schémas, les lois, les ADR et les composants réutilisables.
+
+### Runtime
+
+Octopus Runtime désigne une instance d'exécution du moteur dans un contexte donné : application, tenant, policies, credentials, mémoire cloisonnée et workflows disponibles.
 
 ### Modules
 
-Les modules sont les anciennes tentacules du langage humain.
-
-Ils sont spécialisés, passifs du point de vue de l'orchestration, et appelés par le Coordinateur.
+Les modules sont spécialisés, passifs du point de vue de l'orchestration, et appelés par le Coordinateur.
 
 Ils disposent d'une autonomie d'exécution, jamais d'une autonomie stratégique.
 
@@ -70,7 +158,9 @@ Les connecteurs donnent accès aux systèmes externes : Notion, GitHub, Gmail, M
 
 Ils ne décident rien.
 
-## 4. Écologie d'Octopus
+## 5. Écologie d'Octopus
+
+Cette section est métaphorique. Elle appartient au langage humain et doit toujours être lue à la lumière d'ADR-0003.
 
 Chaque jour, Octopus se nourrit et digère.
 
@@ -84,7 +174,7 @@ Le nid est son espace de travail : Notion, GitHub, Drive, Obsidian ou tout autre
 
 Sa progéniture n'est pas biologique : ce sont ses productions — textes, campagnes, analyses, livres, workflows, assets — déposées proprement pour pouvoir vivre hors de lui.
 
-## 5. Gouvernance
+## 6. Gouvernance
 
 Octopus Engine définit la physique.
 
@@ -92,7 +182,7 @@ Les policies définissent les règles de vie.
 
 Le moteur connaît les états possibles et les transitions. Les applications et la gouvernance décident des seuils, budgets, droits, rythmes, validations et stratégies de routage.
 
-## 6. Cycles de revue
+## 7. Cycles de revue
 
 ### Conseil des Céphalopodes — tous les 2 mois
 
@@ -116,7 +206,7 @@ Question officielle : construirions-nous encore Octopus de cette manière aujour
 
 Convoqué en cas de rupture technologique, réglementaire ou de sécurité.
 
-## 7. Règle du jardin
+## 8. Règle du jardin
 
 Un jardin ne devient pas beau parce qu'on y plante toujours plus de fleurs.
 
@@ -124,7 +214,7 @@ Il devient beau parce qu'on désherbe régulièrement.
 
 Toute nouvelle fonctionnalité doit répondre à la question : qu'est-ce que nous supprimons ou simplifions en échange ?
 
-## 8. Évolution des modules
+## 9. Évolution des modules
 
 Le runtime ne donne pas une vie biologique aux modules.
 
@@ -134,7 +224,7 @@ Ce qui évolue réellement, c'est le routage et la gouvernance : canary, A/B tes
 
 Le vocabulaire de naissance, mue, retraite ou héritage peut exister dans la Bible, mais le code doit rester industriel.
 
-## 9. Devise finale
+## 10. Devise finale
 
 Le rôle d'Octopus n'est pas d'avoir toujours raison.
 
