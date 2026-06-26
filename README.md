@@ -8,15 +8,19 @@ Ce dépôt commence volontairement par la documentation fondatrice. Aucune ligne
 
 ## Statut
 
-Version 0.1 — fondations documentaires.
+Version 0.2 — architecture documentaire consolidée.
 
 ## Principes rapides
 
 - Le moteur reste agnostique : la personnalité appartient aux applications.
+- Le Conductor parle aux humains ; le Coordinator parle aux machines.
 - Les applications composent Octopus, elles n'en héritent jamais.
-- Le Coordinateur orchestre, il n'exécute pas.
+- Le Workflow est une partition déclarative versionnée.
+- Le Coordinator interprète le Workflow, sans logique métier applicative.
 - Les modules ignorent l'existence des autres modules.
+- Chaque module reçoit seulement sa tâche locale.
 - Les capacités sont versionnées et indépendantes des connecteurs.
+- Le Guardian protège, limite ou bloque si nécessaire, mais ne décide jamais du métier.
 - Les métaphores aident à penser le système, elles ne dictent jamais le code.
 
 ## Documents fondateurs
@@ -26,6 +30,12 @@ Version 0.1 — fondations documentaires.
 - [BIBLE.md](BIBLE.md) — synthèse vivante du projet.
 - [ADR/](ADR/) — décisions d'architecture.
 - [docs/](docs/) — spécifications et notes de conception.
+
+## Lire dans le bon ordre
+
+- [docs/readme-map.md](docs/readme-map.md) — carte de lecture.
+- [docs/architecture-v0.2-summary.md](docs/architecture-v0.2-summary.md) — synthèse de la version actuelle.
+- [docs/glossary.md](docs/glossary.md) — définitions canoniques.
 
 ## Règle de départ
 
