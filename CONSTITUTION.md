@@ -1,6 +1,6 @@
 # Constitution Octopus Engine
 
-Version 0.1 — fondation.
+Version 0.2 — fondation.
 
 Cette Constitution définit les lois non négociables du moteur. Les détails d'implémentation appartiennent aux ADR et aux spécifications techniques.
 
@@ -8,7 +8,7 @@ Cette Constitution définit les lois non négociables du moteur. Les détails d'
 
 L'utilisateur ne doit jamais être exposé à une collection de modules, de connecteurs ou de workflows.
 
-Chaque application fournit son propre visage : Clochette, Naturalist, Octopus Gentleman, conseiller marketing, ou autre persona.
+Chaque application fournit son propre visage et sa propre personnalité.
 
 Octopus Engine n'impose aucune personnalité.
 
@@ -20,9 +20,9 @@ Le moteur absorbe la procédure, la coordination, les choix techniques et la com
 
 ## Loi III — Le Coordinateur orchestre
 
-Le Coordinateur pilote une mission via un workflow explicite et déterministe.
+Le Coordinateur exécute une mission via un workflow explicite et déterministe.
 
-Il n'exécute jamais la logique métier à la place des modules.
+Il n'invente pas la mission, ne compose pas le workflow, et n'exécute jamais la logique métier à la place des modules.
 
 ## Loi IV — Les modules s'ignorent
 
@@ -30,11 +30,13 @@ Un module ne connaît jamais directement un autre module.
 
 Il ne référence pas son nom, son état, son implémentation ou sa mémoire.
 
-## Loi V — Le flux principal n'est pas piloté par Event Bus
+Chaque module reçoit uniquement la portion de travail qui le concerne.
 
-L'orchestration métier se fait par workflow explicite.
+## Loi V — Les missions utilisateur ne sont pas pilotées par Event Bus
 
-L'Event Bus sert aux logs, à l'audit, à la télémétrie, aux notifications et aux effets secondaires non critiques.
+Les missions utilisateur sont pilotées par un workflow explicite et déterministe, jamais par un Event Bus.
+
+L'Event Bus reste disponible pour les logs, l'audit, la télémétrie, les notifications et les effets secondaires qui n'engagent pas directement une réponse à l'utilisateur.
 
 ## Loi VI — Les capacités sont indépendantes des connecteurs
 
@@ -87,3 +89,11 @@ La biologie du poulpe aide à penser le système.
 Elle ne doit jamais créer des interfaces anthropomorphiques inutiles dans le runtime.
 
 Dans le code, les composants restent simples, passifs, versionnés et testables.
+
+## Loi XIV — Le Guardian est le système immunitaire
+
+Le Guardian observe, évalue les risques et protège le moteur, les données, les ressources et les utilisateurs.
+
+Il agit de manière proportionnée : il peut observer, alerter, limiter, isoler, suspendre ou bloquer lorsqu'un danger l'exige.
+
+Il ne définit jamais les objectifs métier, ne choisit jamais la stratégie produit et ne se substitue jamais au Coordinateur pour conduire une mission.
