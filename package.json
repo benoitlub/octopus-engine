@@ -1,0 +1,26 @@
+{
+  "name": "octopus-engine",
+  "version": "0.1.0",
+  "description": "Runtime minimal Octopus Engine — Coordinator, Guardian, ModuleTask, Types.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": ["dist", "src"],
+  "scripts": {
+    "build": "tsc --build",
+    "test": "vitest run src/__tests__",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.0",
+    "vitest": "^4.1.9"
+  },
+  "keywords": ["octopus", "engine", "coordinator", "guardian", "workflow"],
+  "license": "MIT"
+}
