@@ -1,6 +1,6 @@
 # Bible Octopus Engine
 
-Version 0.2 — document vivant.
+Version 0.3 — document vivant.
 
 La Bible rassemble la philosophie, l'écologie, les principes d'évolution et la culture d'ingénierie d'Octopus Engine.
 
@@ -20,11 +20,11 @@ Octopus possède trois langages.
 
 ### Langage humain
 
-Il sert à expliquer : poulpe, tentacule, ventouse, organe, nid, mue, digestion, chasse.
+Il sert à expliquer : poulpe, tentacule, ventouse, organe, nid, mue, digestion, chasse, jardin, serre aquatique.
 
 ### Langage d'architecture
 
-Il sert à décider : module, capability, connector, policy, workflow, runtime, tenant, tracing.
+Il sert à décider : intent, knowledge garden, resonance, harvest, module, capability, connector, policy, workflow, runtime, tenant, tracing.
 
 ### Langage machine
 
@@ -178,6 +178,8 @@ Sa progéniture n'est pas biologique : ce sont ses productions — textes, campa
 
 Le Garden et la Serre Aquatique désignent un seul et même espace vivant.
 
+Dans le langage Core, cet espace est le **Knowledge Garden**.
+
 Le Garden n'est pas Octopus, n'est pas une tentacule, n'est pas un module et n'est pas le runtime. C'est l'environnement dans lequel les intentions, projets, ressources, capacités, routines et traces évoluent.
 
 Octopus ne possède pas le Garden : il le cultive.
@@ -186,15 +188,35 @@ Le Poulpe jardine dans le Garden ; il ne devient jamais le Garden.
 
 Cette séparation protège le noyau d'Octopus : l'orchestration reste maigre, tandis que l'écosystème vivant accueille les intentions, les travaux en cours, les capacités, les routines et les traces auditables.
 
+### Cycle Core
+
+Intent → Graines → Resonance → Harvest → Runtime
+
+Le Knowledge Garden incube.
+
+Le Runtime exécute.
+
+Aucune idée n'entre directement en exécution sans Harvest.
+
+Harvest produit une spécification stable.
+
+### Parcelles
+
+Le Knowledge Garden est organisé en parcelles.
+
+Une parcelle représente un domaine, un projet, un client, un produit ou un univers.
+
+Les parcelles sont organisées mais non cloisonnées. Elles préservent leur contexte tout en autorisant les échanges entre domaines.
+
 ### Zones du Garden
 
 - Graines : intentions, idées, opportunités et signaux faibles.
 - Pousses : travaux en cours, brouillons, prototypes, branches, tickets ouverts, hypothèses et décisions en discussion.
 - Arbres : projets stabilisés, applications, livres, jeux, univers, services, workflows ou composants durables.
-- Récoltes : livrables prêts à sortir du Garden.
+- Récoltes : livrables prêts à sortir du Garden ; dans le Core, la récolte correspond à Harvest.
 - Compost : archives utiles, idées abandonnées, versions obsolètes, erreurs et retours d'expérience.
 
-### Fonctions ajoutées au Garden
+### Fonctions du Garden
 
 Le registre vivant des capacités appartient au Garden, pas au Poulpe. Il recense ce que les capacités, connecteurs, personas, modules et outils savent faire, ce dont ils ont besoin, ce qu'ils produisent, leur coût, leur disponibilité, leurs limites, leurs permissions et leur niveau de stabilité.
 
