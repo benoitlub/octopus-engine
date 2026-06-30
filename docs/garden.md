@@ -16,6 +16,18 @@ Le Poulpe jardine dans le Garden ; il ne devient jamais le Garden.
 
 Cette séparation protège le noyau d'Octopus : l'orchestration reste maigre, tandis que l'écosystème vivant accueille les intentions, les travaux en cours, les capacités, les routines et les traces auditables.
 
+## Principe de croissance
+
+Le Garden absorbe la nouveauté.
+
+Le Core absorbe uniquement les invariants.
+
+Toute nouvelle idée commence sa vie dans le Garden.
+
+Elle ne rejoint le Core qu'après avoir démontré sa stabilité, son utilité et son caractère universel.
+
+En cas de doute, une nouvelle idée doit enrichir le Garden avant d'enrichir le Core.
+
 ## Cycle Core
 
 Le Knowledge Garden suit le cycle :
@@ -164,6 +176,9 @@ Ils ne modifient jamais rétroactivement une récolte déjà figée.
 11. Le compost est une ressource, pas un échec.
 12. Les routines déclaratives appartiennent au Garden, pas au Coordinator.
 13. Le registre vivant des capacités appartient au Garden, pas au Poulpe.
+14. Le Garden absorbe la nouveauté.
+15. Le Core absorbe uniquement les invariants.
+16. En cas de doute, une nouvelle idée enrichit d'abord le Garden.
 
 ## Formule courte
 
@@ -174,6 +189,10 @@ Dans le Core, il s'appelle Knowledge Garden.
 Le Poulpe y jardine.
 
 Harvest ouvre la porte du Runtime.
+
+Le Garden absorbe la nouveauté.
+
+Le Core absorbe les invariants.
 
 Le noyau reste maigre.
 
