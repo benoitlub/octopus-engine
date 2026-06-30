@@ -2,7 +2,11 @@
 
 Le Garden et la Serre Aquatique désignent un seul et même espace vivant.
 
-Ce document fixe la convention : le Garden n'est pas Octopus, n'est pas une tentacule, n'est pas un module et n'est pas le runtime. C'est l'environnement dans lequel les intentions, projets, ressources, capacités, routines et traces évoluent.
+Dans le langage Core, cet espace est le **Knowledge Garden**.
+
+Dans le langage humain et produit, il peut être appelé **Garden** ou **Serre Aquatique**.
+
+Ce document fixe la convention : le Garden n'est pas Octopus, n'est pas une tentacule, n'est pas un module et n'est pas le Runtime. C'est l'environnement dans lequel les intentions, projets, ressources, capacités, routines et traces évoluent.
 
 Octopus ne possède pas le Garden : il le cultive.
 
@@ -11,6 +15,38 @@ Octopus ne possède pas le Garden : il le cultive.
 Le Poulpe jardine dans le Garden ; il ne devient jamais le Garden.
 
 Cette séparation protège le noyau d'Octopus : l'orchestration reste maigre, tandis que l'écosystème vivant accueille les intentions, les travaux en cours, les capacités, les routines et les traces auditables.
+
+## Cycle Core
+
+Le Knowledge Garden suit le cycle :
+
+Intent → Graines → Resonance → Harvest → Runtime
+
+Une intention décrit un résultat attendu, pas une procédure.
+
+Une graine incube.
+
+La Resonance évalue la maturité d'une graine ou d'une intention.
+
+La Harvest est la frontière unique entre incubation et exécution.
+
+Le Runtime exécute uniquement ce qui a été récolté sous forme de spécification stable.
+
+## Parcelles
+
+Le Knowledge Garden est organisé en parcelles.
+
+Une parcelle représente un domaine, un projet, un client, un produit ou un univers.
+
+Une intention peut produire plusieurs graines dans une ou plusieurs parcelles.
+
+Les graines mûrissent indépendamment. Elles peuvent entrer en résonance avec d'autres parcelles lorsqu'une connexion apporte une valeur réelle.
+
+Les parcelles sont organisées mais non cloisonnées. Elles préservent leur contexte tout en autorisant les échanges entre domaines.
+
+Le Core définit le fonctionnement général du Knowledge Garden. Il ne définit pas l'organisation interne des parcelles.
+
+Chaque Adapter ou application structure librement son propre jardin.
 
 ## Zones du Garden
 
@@ -37,6 +73,8 @@ Un arbre peut continuer à grandir, mais il possède une identité claire.
 Les récoltes représentent les livrables : publications, releases, manuscrits, pages, posts, campagnes, exports, analyses ou artefacts prêts à sortir du Garden.
 
 Une récolte doit être traçable : on doit savoir de quelle graine, pousse ou arbre elle provient.
+
+Dans le Core, une récolte correspond à **Harvest** : elle fige une intention en spécification exploitable par le Runtime.
 
 ### Compost
 
@@ -101,24 +139,41 @@ Octopus reçoit une intention, consulte le Garden, choisit les ressources utiles
 
 Le Garden continue d'exister même lorsque le Poulpe est inactif.
 
+## Frontière Garden → Runtime
+
+Aucune idée n'entre directement en exécution sans Harvest.
+
+Harvest produit une spécification stable.
+
+Les retours, erreurs, apprentissages et idées issues de l'exécution redeviennent de nouvelles entrées d'incubation.
+
+Ils ne modifient jamais rétroactivement une récolte déjà figée.
+
 ## Règles non négociables
 
 1. Le Garden et la Serre Aquatique sont un seul espace.
-2. Le Garden n'est pas Octopus.
-3. Le Garden n'est pas une tentacule.
-4. Le Garden n'est pas un connecteur.
-5. Le Garden contient les intentions, les WIP, les capacités, les routines et les traces.
-6. Octopus consulte le Garden, mais ne l'embarque pas dans son noyau.
-7. Toute nouvelle idée doit d'abord être placée dans la bonne zone du Garden avant de devenir du code.
-8. Le compost est une ressource, pas un échec.
-9. Les routines déclaratives appartiennent au Garden, pas au Coordinator.
-10. Le registre vivant des capacités appartient au Garden, pas au Poulpe.
+2. Dans le Core, le Garden est nommé Knowledge Garden.
+3. Le Garden n'est pas Octopus.
+4. Le Garden n'est pas une tentacule.
+5. Le Garden n'est pas un connecteur.
+6. Le Garden incube ; le Runtime exécute.
+7. Aucune idée n'entre directement en exécution sans Harvest.
+8. Le Garden contient les intentions, les WIP, les capacités, les routines et les traces.
+9. Octopus consulte le Garden, mais ne l'embarque pas dans son noyau.
+10. Toute nouvelle idée doit d'abord être placée dans la bonne zone du Garden avant de devenir du code.
+11. Le compost est une ressource, pas un échec.
+12. Les routines déclaratives appartiennent au Garden, pas au Coordinator.
+13. Le registre vivant des capacités appartient au Garden, pas au Poulpe.
 
 ## Formule courte
 
 Le Garden est la Serre Aquatique.
 
+Dans le Core, il s'appelle Knowledge Garden.
+
 Le Poulpe y jardine.
+
+Harvest ouvre la porte du Runtime.
 
 Le noyau reste maigre.
 
