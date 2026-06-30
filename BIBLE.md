@@ -174,7 +174,37 @@ Le nid est son espace de travail : Notion, GitHub, Drive, Obsidian ou tout autre
 
 Sa progéniture n'est pas biologique : ce sont ses productions — textes, campagnes, analyses, livres, workflows, assets — déposées proprement pour pouvoir vivre hors de lui.
 
-## 6. Gouvernance
+## 6. Garden — Serre Aquatique
+
+Le Garden et la Serre Aquatique désignent un seul et même espace vivant.
+
+Le Garden n'est pas Octopus, n'est pas une tentacule, n'est pas un module et n'est pas le runtime. C'est l'environnement dans lequel les intentions, projets, ressources, capacités, routines et traces évoluent.
+
+Octopus ne possède pas le Garden : il le cultive.
+
+Le Poulpe jardine dans le Garden ; il ne devient jamais le Garden.
+
+Cette séparation protège le noyau d'Octopus : l'orchestration reste maigre, tandis que l'écosystème vivant accueille les intentions, les travaux en cours, les capacités, les routines et les traces auditables.
+
+### Zones du Garden
+
+- Graines : intentions, idées, opportunités et signaux faibles.
+- Pousses : travaux en cours, brouillons, prototypes, branches, tickets ouverts, hypothèses et décisions en discussion.
+- Arbres : projets stabilisés, applications, livres, jeux, univers, services, workflows ou composants durables.
+- Récoltes : livrables prêts à sortir du Garden.
+- Compost : archives utiles, idées abandonnées, versions obsolètes, erreurs et retours d'expérience.
+
+### Fonctions ajoutées au Garden
+
+Le registre vivant des capacités appartient au Garden, pas au Poulpe. Il recense ce que les capacités, connecteurs, personas, modules et outils savent faire, ce dont ils ont besoin, ce qu'ils produisent, leur coût, leur disponibilité, leurs limites, leurs permissions et leur niveau de stabilité.
+
+Les routines déclaratives appartiennent au Garden, pas au Coordinator. Elles décrivent les comportements récurrents, conditionnels ou planifiés sans grossir le noyau.
+
+Le journal auditable appartient au Garden. Il conserve les graines plantées, décisions prises, pousses ouvertes, récoltes produites, éléments mis au compost, routines exécutées, capacités utilisées, erreurs et limites rencontrées.
+
+Voir aussi : docs/garden.md.
+
+## 7. Gouvernance
 
 Octopus Engine définit la physique.
 
@@ -182,7 +212,7 @@ Les policies définissent les règles de vie.
 
 Le moteur connaît les états possibles et les transitions. Les applications et la gouvernance décident des seuils, budgets, droits, rythmes, validations et stratégies de routage.
 
-## 7. Cycles de revue
+## 8. Cycles de revue
 
 ### Conseil des Céphalopodes — tous les 2 mois
 
@@ -206,7 +236,7 @@ Question officielle : construirions-nous encore Octopus de cette manière aujour
 
 Convoqué en cas de rupture technologique, réglementaire ou de sécurité.
 
-## 8. Règle du jardin
+## 9. Règle du jardin
 
 Un jardin ne devient pas beau parce qu'on y plante toujours plus de fleurs.
 
@@ -214,7 +244,7 @@ Il devient beau parce qu'on désherbe régulièrement.
 
 Toute nouvelle fonctionnalité doit répondre à la question : qu'est-ce que nous supprimons ou simplifions en échange ?
 
-## 9. Évolution des modules
+## 10. Évolution des modules
 
 Le runtime ne donne pas une vie biologique aux modules.
 
@@ -224,7 +254,7 @@ Ce qui évolue réellement, c'est le routage et la gouvernance : canary, A/B tes
 
 Le vocabulaire de naissance, mue, retraite ou héritage peut exister dans la Bible, mais le code doit rester industriel.
 
-## 10. Devise finale
+## 11. Devise finale
 
 Le rôle d'Octopus n'est pas d'avoir toujours raison.
 
