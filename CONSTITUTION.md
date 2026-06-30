@@ -1,99 +1,231 @@
-# Constitution Octopus Engine
+# Octopus Core Constitution v1.0 — Draft épuré
 
-Version 0.2 — fondation.
+## Préambule
 
-Cette Constitution définit les lois non négociables du moteur. Les détails d'implémentation appartiennent aux ADR et aux spécifications techniques.
+Octopus est conçu comme un écosystème vivant.
 
-## Loi I — Une seule interface visible
+À l'image d'une serre aquatique, les ressources ne sont pas consommées puis oubliées ; elles circulent, se transforment et enrichissent continuellement l'ensemble du système.
 
-L'utilisateur ne doit jamais être exposé à une collection de modules, de connecteurs ou de workflows.
+Une idée peut devenir un projet. Un projet produit de l'expérience. L'expérience nourrit de nouvelles idées. Les connaissances se renforcent par leurs interactions plutôt que par leur accumulation.
 
-Chaque application fournit son propre visage et sa propre personnalité.
+L'objectif d'Octopus est de favoriser des cycles vertueux où les intentions mûrissent, les réalisations produisent de nouveaux apprentissages et chaque contribution augmente durablement la valeur de l'écosystème.
 
-Octopus Engine n'impose aucune personnalité.
+Le Core définit les mécanismes qui rendent ces cycles possibles. Les Adapters les expriment selon leur propre langage, leur domaine et leur culture.
 
-## Loi II — L'intention appartient à l'utilisateur
+---
+
+## Statut
+
+Draft v1.0 épuré.
+
+Objectif : définir le Core d'Octopus sans métaphore, sans lore et sans dépendance à Blacklace.
+
+## Vision
+
+Octopus est un moteur d'orchestration d'intentions.
+
+Il reçoit une intention exprimée en langage naturel, la transforme en actions structurées, orchestre les capacités nécessaires, conserve les décisions importantes et protège la cohérence du système.
+
+Octopus doit réduire la charge mentale de l'utilisateur sans masquer les décisions sensibles.
+
+## Principe fondateur
+
+Le Core est universel.
+
+Les Adapters fournissent le vocabulaire, les personas, les métaphores et l'expérience propre à chaque contexte.
+
+Le Core ne contient aucun élément narratif.
+
+## Concepts du Core
+
+### Intent
+
+Expression initiale d'un objectif utilisateur.
+
+Une intention décrit un résultat attendu, pas une procédure.
+
+### Knowledge Garden
+
+Espace d'incubation des idées, hypothèses, opportunités et pistes non encore matérialisées.
+
+Il ne développe pas, ne publie pas et ne déclenche pas d'action sensible.
+
+### Resonance
+
+Mécanisme d'évaluation de la maturité d'une intention ou d'une idée.
+
+La résonance peut inclure : cohérence avec l'écosystème, utilité, faisabilité, persistance dans le temps et convergence de critiques indépendantes.
+
+### Harvest
+
+Frontière unique entre incubation et exécution.
+
+Une idée ne devient projet qu'au moment de sa récolte.
+
+La récolte fige une intention en spécification exploitable par le Runtime.
+
+### Runtime
+
+Couche d'exécution technique.
+
+Elle reçoit des spécifications, orchestre des workflows, appelle des capacités, journalise les traces et produit des livrables.
+
+### Capabilities
+
+Actions réutilisables exposées au Runtime : lire, écrire, générer, publier, rechercher, analyser, transformer.
+
+Les capacités peuvent être fournies par plusieurs connecteurs.
+
+### Policies
+
+Règles configurables qui limitent ou autorisent certaines actions : budget, sécurité, validation humaine, nombre de projets actifs, permissions.
+
+Les seuils opérationnels vivent dans les Policies, pas dans la Constitution.
+
+### Memory
+
+Mécanisme de conservation contextualisée.
+
+La mémoire est cloisonnée par application, client ou adapter.
+
+Toute passerelle mémoire doit être explicite.
+
+### Guardian
+
+Système de protection.
+
+Il observe, alerte, limite, isole, suspend ou bloque selon les policies et le niveau de risque.
+
+Guardian protège le système mais ne décide pas du métier.
+
+### Adapter
+
+Couche de personnalisation.
+
+Un Adapter traduit les concepts du Core vers le vocabulaire, les personas, les interfaces et les usages d'un contexte donné.
+
+## Lois du Core
+
+### Loi 1 — Core sans métaphore
+
+Le Core ne contient aucune métaphore, aucun personnage et aucun élément narratif.
+
+Les métaphores appartiennent aux Adapters.
+
+### Loi 2 — Intention avant procédure
 
 L'utilisateur exprime un objectif.
 
-Le moteur absorbe la procédure, la coordination, les choix techniques et la complexité.
+Octopus déduit les étapes nécessaires, puis demande validation quand l'action est sensible.
 
-## Loi III — Le Coordinateur orchestre
+### Loi 3 — Incubation séparée de l'exécution
 
-Le Coordinateur exécute une mission via un workflow explicite et déterministe.
+Le Knowledge Garden incube.
 
-Il n'invente pas la mission, ne compose pas le workflow, et n'exécute jamais la logique métier à la place des modules.
+Le Runtime exécute.
 
-## Loi IV — Les modules s'ignorent
+Aucune idée n'entre directement en exécution sans Harvest.
 
-Un module ne connaît jamais directement un autre module.
+### Loi 4 — Récolte
 
-Il ne référence pas son nom, son état, son implémentation ou sa mémoire.
+Une idée ne devient jamais projet parce qu'elle est née.
 
-Chaque module reçoit uniquement la portion de travail qui le concerne.
+Elle devient projet lorsqu'elle est récoltée.
 
-## Loi V — Les missions utilisateur ne sont pas pilotées par Event Bus
+La récolte produit une spécification figée.
 
-Les missions utilisateur sont pilotées par un workflow explicite et déterministe, jamais par un Event Bus.
+Toute évolution ultérieure devient une nouvelle intention ou une nouvelle graine dans le Knowledge Garden.
 
-L'Event Bus reste disponible pour les logs, l'audit, la télémétrie, les notifications et les effets secondaires qui n'engagent pas directement une réponse à l'utilisateur.
+### Loi 5 — Capacité limitée
 
-## Loi VI — Les capacités sont indépendantes des connecteurs
+Octopus ne matérialise pas toutes les idées mûres immédiatement.
 
-Une capacité décrit une action métier ou technique réutilisable.
+Les Policies limitent le nombre d'exécutions simultanées afin de préserver la capacité de terminer.
 
-Un connecteur fournit l'accès à un système externe.
+### Loi 6 — Séparation des responsabilités
 
-Les modules utilisent des capacités, pas directement des connecteurs.
+Les modules ne s'appellent pas directement.
 
-## Loi VII — Les applications composent Octopus
+Les capacités ne décident pas.
 
-Aucune application n'hérite du moteur.
+Les connecteurs ne décident pas.
 
-Chaque application déclare les modules, capacités, personas, policies et connecteurs dont elle a besoin.
+Le Runtime orchestre, les Policies contraignent, Guardian protège.
 
-## Loi VIII — Toute mémoire est cloisonnée
+### Loi 7 — Mémoire cloisonnée
 
-Il n'existe pas de mémoire commune ouverte entre applications.
+Aucune mémoire commune ouverte n'existe par défaut.
 
-Une mémoire peut partager un mécanisme, jamais un espace de données sans décision explicite, documentée et validée.
+Chaque contexte possède son espace mémoire.
 
-## Loi IX — Le moteur définit la physique, pas la politique
+Les passerelles doivent être documentées et validées.
 
-Octopus Engine définit les états possibles, les contrats, les transitions et les événements.
+### Loi 8 — Conseil de Résonance
 
-Les règles de gouvernance, budgets, promotions, retraits, seuils et rythmes d'évolution appartiennent aux policies.
+Une loi fondamentale du Core ne peut être ajoutée ou modifiée qu'après revue critique par plusieurs intelligences ou experts indépendants.
 
-## Loi X — Tout ajout doit pouvoir être retiré
+Le but n'est pas l'unanimité, mais l'identification des invariants qui résistent aux critiques.
 
-Un module, une capacité ou un connecteur doit pouvoir être supprimé, désactivé ou remplacé sans casser le reste du système.
+### Loi 9 — Adapters non intrusifs
 
-Si son retrait casse autre chose que lui-même, l'architecture a déjà failli.
+Un Adapter peut modifier le langage, les personas, les interfaces et les policies d'un contexte.
 
-## Loi XI — Le silence est préférable à une fausse réponse
+Il ne modifie pas le Core.
 
-Octopus doit pouvoir dire qu'il ne sait pas, qu'il n'a pas le module nécessaire, ou qu'il lui manque une permission.
+### Loi 10 — Tests des invariants
 
-Improviser une réponse plausible mais fragile est une faute de conception.
+Toute loi du Core doit pouvoir être vérifiée par revue, test, audit ou policy.
 
-## Loi XII — Toute décision structurante laisse une trace
+Une loi non vérifiable doit rester dans un ADR ou un Adapter.
 
-Toute décision d'architecture importante doit produire un ADR.
+## Frontières
 
-Une décision non documentée n'est pas une décision stable.
+### Core → Adapter
 
-## Loi XIII — Les métaphores s'arrêtent avant le code
+Le Core expose des concepts neutres.
 
-La biologie du poulpe aide à penser le système.
+L'Adapter fournit le langage naturel, les personas et les conventions d'usage.
 
-Elle ne doit jamais créer des interfaces anthropomorphiques inutiles dans le runtime.
+### Knowledge Garden → Runtime
 
-Dans le code, les composants restent simples, passifs, versionnés et testables.
+Le passage se fait uniquement par Harvest.
 
-## Loi XIV — Le Guardian est le système immunitaire
+Harvest produit une spécification stable.
 
-Le Guardian observe, évalue les risques et protège le moteur, les données, les ressources et les utilisateurs.
+### Runtime → Knowledge Garden
 
-Il agit de manière proportionnée : il peut observer, alerter, limiter, isoler, suspendre ou bloquer lorsqu'un danger l'exige.
+Les retours, erreurs, apprentissages et idées issues de l'exécution redeviennent de nouvelles entrées d'incubation.
 
-Il ne définit jamais les objectifs métier, ne choisit jamais la stratégie produit et ne se substitue jamais au Coordinateur pour conduire une mission.
+Ils ne modifient jamais rétroactivement une récolte déjà figée.
+
+## Ce qui sort du Core
+
+Tout nom propre, personnage, lieu, symbole ou lore appartient à un Adapter ou au Codex de son univers.
+
+Exemples à exclure du Core : Blacklace, Feuch, Brumeux, Fée Belette, Natasha, SATOR, Natashain, lieux ou personnages narratifs.
+
+## Règle d'évolution
+
+Toute proposition visant à enrichir le Core doit démontrer qu'elle ne peut pas être implémentée comme Adapter, Policy ou Capability.
+
+À défaut, elle est refusée du Core.
+
+## Knowledge Garden — Parcelles
+
+Le Knowledge Garden est organisé en parcelles.
+
+Une parcelle représente un domaine, un projet, un client, un produit ou un univers.
+
+Chaque parcelle suit le même cycle :
+
+Intent → Graines → Resonance → Harvest → Runtime
+
+Une intention peut produire plusieurs graines.
+
+Les graines mûrissent indépendamment. Elles peuvent entrer en résonance avec d'autres parcelles lorsqu'une connexion apporte une valeur réelle.
+
+Les parcelles sont organisées mais non cloisonnées. Elles préservent leur contexte tout en autorisant les échanges entre domaines.
+
+Le Core définit le fonctionnement général du Knowledge Garden. Il ne définit pas l'organisation interne des parcelles.
+
+Chaque Adapter ou application structure librement son propre jardin.
