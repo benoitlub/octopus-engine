@@ -2,6 +2,7 @@ import { serve } from "@hono/node-server";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { OctopusEngine } from "./octopus.js";
+import { renderGardenerPage } from "./gardener-page.js";
 
 const app = new Hono();
 const engine = new OctopusEngine();
@@ -20,7 +21,7 @@ app.get("/", (c) =>
   c.json({
     name: "octopus-engine",
     status: "alive",
-    routes: ["GET /health", "GET /brief", "GET /garden", "GET /resources", "POST /mission"],
+    routes: ["GET /health", "GET /brief", "GET /garden", "GET /garden-ui", "GET /resources", "POST /mission"],
   }),
 );
 
@@ -33,6 +34,9 @@ app.get("/brief", async (c) => {
   lastStart = await engine.start();
   return c.json({ brief: lastStart.brief, mission: lastStart.mission, resources: lastStart.resources });
 });
+
+app.get("/garden-ui", (c) => c.html(renderGardenerPage()));
+app.get("/gardener", (c) => c.html(renderGardenerPage()));
 
 app.get("/garden", (c) => c.json(engine.garden.getState()));
 
@@ -51,8 +55,18 @@ app.post("/mission", async (c) => {
     return c.json({ status: "failed", message: "No parcel available." }, 400);
   }
 
+  const missionId = `mission_${Date.now()}`;
+  engine.garden.addMission({
+    id: missionId,
+    parcelId: parcel.id,
+    title: typeof body.title === "string" ? body.title : `Prepare a useful campaign for ${parcel.name}`,
+    status: "running",
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  });
+
   const mission = await engine.runtime.run({
-    id: `mission_${Date.now()}`,
+    id: missionId,
     title: typeof body.title === "string" ? body.title : `Prepare a useful campaign for ${parcel.name}`,
     objective: typeof body.objective === "string" ? body.objective : parcel.objective,
     parcel,
@@ -61,6 +75,8 @@ app.post("/mission", async (c) => {
     prompt: typeof body.prompt === "string" ? body.prompt : undefined,
     authorizedResources,
   });
+
+  engine.garden.updateMission(missionId, { status: mission.status, output: mission.output });
 
   return c.json(mission);
 });
