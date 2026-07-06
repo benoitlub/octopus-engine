@@ -82,3 +82,12 @@ export type {
   RuntimeMissionResult,
 } from "./mission-runtime.js";
 export { MissionRuntime } from "./mission-runtime.js";
+
+export type { OctopusEventType, OctopusEvent, EventHandler } from "./event-bus.js";
+export { EventBus } from "./event-bus.js";
+
+export type { MissionRecord, GardenState } from "./garden-store.js";
+export { GardenStore, createDemoGardenStore } from "./garden-store.js";
+
+export type { OctopusStartResult } from "./octopus.js";
+export { OctopusEngine } from "./octopus.js";
