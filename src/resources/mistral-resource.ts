@@ -6,6 +6,27 @@ export interface MistralResourceOptions {
   baseUrl?: string;
 }
 
+interface MistralUsagePayload {
+  prompt_tokens?: number;
+  completion_tokens?: number;
+  total_tokens?: number;
+}
+
+interface MistralChatPayload {
+  choices?: Array<{ message?: { content?: string } }>;
+  usage?: MistralUsagePayload;
+}
+
+function estimateCostEur(model: string, usage?: MistralUsagePayload): number | undefined {
+  if (!usage) return undefined;
+  const promptTokens = usage.prompt_tokens ?? 0;
+  const completionTokens = usage.completion_tokens ?? 0;
+  const normalized = model.toLowerCase();
+  const promptPerMillion = normalized.includes("large") ? 1.8 : 0.4;
+  const completionPerMillion = normalized.includes("large") ? 5.4 : 1.2;
+  return Number(((promptTokens / 1_000_000) * promptPerMillion + (completionTokens / 1_000_000) * completionPerMillion).toFixed(6));
+}
+
 export class MistralResource implements OctopusResource {
   readonly id = "mistral";
   readonly name = "Mistral AI";
@@ -43,6 +64,7 @@ export class MistralResource implements OctopusResource {
 
     const prompt = String(request.input.prompt ?? "");
     const system = String(request.input.system ?? "You are an Octopus Engine resource. Return useful, structured output.");
+    const startedAt = Date.now();
 
     try {
       const response = await fetch(`${this.baseUrl}/chat/completions`, {
@@ -62,22 +84,33 @@ export class MistralResource implements OctopusResource {
         }),
       });
 
+      const durationMs = Date.now() - startedAt;
+
       if (!response.ok) {
         return {
           resourceId: this.id,
           status: "error",
           output: {},
           message: `Mistral API error: ${response.status} ${response.statusText}`,
+          usage: { model: this.model, durationMs },
         };
       }
 
-      const data = (await response.json()) as { choices?: Array<{ message?: { content?: string } }> };
+      const data = (await response.json()) as MistralChatPayload;
       return {
         resourceId: this.id,
         status: "success",
         output: {
           text: data.choices?.[0]?.message?.content ?? "",
           model: this.model,
+        },
+        usage: {
+          model: this.model,
+          promptTokens: data.usage?.prompt_tokens,
+          completionTokens: data.usage?.completion_tokens,
+          totalTokens: data.usage?.total_tokens,
+          durationMs,
+          estimatedCostEur: estimateCostEur(this.model, data.usage),
         },
       };
     } catch (error) {
@@ -86,6 +119,7 @@ export class MistralResource implements OctopusResource {
         status: "error",
         output: {},
         message: error instanceof Error ? error.message : "Unknown Mistral error.",
+        usage: { model: this.model, durationMs: Date.now() - startedAt },
       };
     }
   }
