@@ -8,6 +8,7 @@ export interface ResourceRequest {
   input: Record<string, unknown>;
   estimatedCost?: string;
   sensitive?: boolean;
+  authorizedResources?: string[];
 }
 
 export interface ResourceResult {
@@ -55,6 +56,9 @@ export class ResourceManager {
         message: "Resource not registered.",
       };
     }
+
+    const isAuthorized = request.authorizedResources?.includes(request.resourceId) ?? false;
+    if (isAuthorized) return resource.execute(request);
 
     const policy: PolicyCheckResult = this.policy.check({
       resourceId: request.resourceId,
