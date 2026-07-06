@@ -75,3 +75,10 @@ export { ResourceManager } from "./resource-manager.js";
 
 export type { MistralResourceOptions } from "./resources/mistral-resource.js";
 export { MistralResource } from "./resources/mistral-resource.js";
+
+export type {
+  MissionStatus,
+  RuntimeMissionInput,
+  RuntimeMissionResult,
+} from "./mission-runtime.js";
+export { MissionRuntime } from "./mission-runtime.js";
