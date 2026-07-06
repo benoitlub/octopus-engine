@@ -1,10 +1,20 @@
 import { serve } from "@hono/node-server";
 import { Hono } from "hono";
+import { cors } from "hono/cors";
 import { OctopusEngine } from "./octopus.js";
 
 const app = new Hono();
 const engine = new OctopusEngine();
 let lastStart: Awaited<ReturnType<OctopusEngine["start"]>> | null = null;
+
+app.use(
+  "*",
+  cors({
+    origin: "*",
+    allowMethods: ["GET", "POST", "OPTIONS"],
+    allowHeaders: ["Content-Type"],
+  }),
+);
 
 app.get("/", (c) =>
   c.json({
