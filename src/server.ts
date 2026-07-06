@@ -43,6 +43,9 @@ app.post("/mission", async (c) => {
   const state = engine.garden.getState();
   const parcelId = typeof body.parcelId === "string" ? body.parcelId : undefined;
   const parcel = state.parcels.find((item) => item.id === parcelId) ?? state.parcels[0];
+  const authorizedResources = Array.isArray(body.authorize)
+    ? body.authorize.filter((item): item is string => typeof item === "string")
+    : [];
 
   if (!parcel) {
     return c.json({ status: "failed", message: "No parcel available." }, 400);
@@ -56,6 +59,7 @@ app.post("/mission", async (c) => {
     preferredTheme: "marketing",
     requiredCapabilities: ["campaign.generate"],
     prompt: typeof body.prompt === "string" ? body.prompt : undefined,
+    authorizedResources,
   });
 
   return c.json(mission);
