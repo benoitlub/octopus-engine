@@ -35,3 +35,14 @@ export type {
   GardenReport,
 } from "./gardener.js";
 export { GardenerConsole } from "./gardener.js";
+
+export type {
+  TentacleTheme,
+  TentacleHealth,
+  TentacleMutation,
+  TentacleResource,
+  TentacleProfile,
+  TentacleSelectionInput,
+  TentacleSelection,
+} from "./tentacle.js";
+export { TentacleRegistry } from "./tentacle.js";
