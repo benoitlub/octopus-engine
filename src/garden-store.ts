@@ -1,5 +1,6 @@
 import type { ParcelSnapshot, GardenReport } from "./gardener.js";
 import type { OctopusEvent } from "./event-bus.js";
+import type { ResourceUsage } from "./resource-manager.js";
 
 export interface MissionRecord {
   id: string;
@@ -11,10 +12,31 @@ export interface MissionRecord {
   output?: Record<string, unknown>;
 }
 
+export interface ResourceUsageRecord {
+  id: string;
+  missionId: string;
+  parcelId: string;
+  resourceId: string;
+  status: string;
+  createdAt: string;
+  usage?: ResourceUsage;
+}
+
+export interface HarvestRecord {
+  id: string;
+  missionId: string;
+  parcelId: string;
+  title: string;
+  createdAt: string;
+  preview: string;
+}
+
 export interface GardenState {
   parcels: ParcelSnapshot[];
   missions: MissionRecord[];
   events: OctopusEvent[];
+  resourceUsage: ResourceUsageRecord[];
+  harvests: HarvestRecord[];
   lastReport?: GardenReport;
 }
 
@@ -26,6 +48,8 @@ export class GardenStore {
       parcels: initial?.parcels ?? [],
       missions: initial?.missions ?? [],
       events: initial?.events ?? [],
+      resourceUsage: initial?.resourceUsage ?? [],
+      harvests: initial?.harvests ?? [],
       lastReport: initial?.lastReport,
     };
   }
@@ -35,6 +59,8 @@ export class GardenStore {
       parcels: [...this.state.parcels],
       missions: [...this.state.missions],
       events: [...this.state.events],
+      resourceUsage: [...this.state.resourceUsage],
+      harvests: [...this.state.harvests],
       lastReport: this.state.lastReport,
     };
   }
@@ -61,6 +87,14 @@ export class GardenStore {
 
   appendEvent(event: OctopusEvent): void {
     this.state.events.push(event);
+  }
+
+  addResourceUsage(record: ResourceUsageRecord): void {
+    this.state.resourceUsage.push(record);
+  }
+
+  addHarvest(record: HarvestRecord): void {
+    this.state.harvests.push(record);
   }
 }
 
