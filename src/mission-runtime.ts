@@ -12,6 +12,7 @@ export interface RuntimeMissionInput {
   requiredCapabilities: string[];
   preferredTheme?: TentacleTheme;
   prompt?: string;
+  authorizedResources?: string[];
 }
 
 export interface RuntimeMissionResult {
@@ -77,8 +78,9 @@ export class MissionRuntime {
       missionId: input.id,
       estimatedCost: resource.costLevel,
       sensitive: resource.requiresAuthorization,
+      authorizedResources: input.authorizedResources,
       input: {
-        system: "You are a resource used by Octopus Engine. Produce concise, actionable output. Never expose internal garden mechanics to clients.",
+        system: "You are a resource used by Octopus Engine. Produce concise, actionable output in French when the prompt is French. Never expose internal garden mechanics to clients.",
         prompt: input.prompt ?? defaultPrompt(input),
       },
     });
