@@ -17,7 +17,13 @@
     "prepare": "npm run build",
     "test": "vitest run src/__tests__",
     "typecheck": "tsc --noEmit",
-    "octopus:start": "tsx src/cli/octopus-start.ts"
+    "octopus:start": "tsx src/cli/octopus-start.ts",
+    "dev": "tsx src/server.ts",
+    "start": "node dist/server.js"
+  },
+  "dependencies": {
+    "@hono/node-server": "^1.14.0",
+    "hono": "^4.7.0"
   },
   "devDependencies": {
     "typescript": "^5.9.0",
