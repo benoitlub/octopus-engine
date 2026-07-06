@@ -46,3 +46,12 @@ export type {
   TentacleSelection,
 } from "./tentacle.js";
 export { TentacleRegistry } from "./tentacle.js";
+
+export type {
+  OctopusDaypart,
+  RhythmActivityKind,
+  RhythmContext,
+  RhythmActivity,
+  RhythmPlan,
+} from "./rhythm.js";
+export { OctopusRhythm, resolveDaypart } from "./rhythm.js";
