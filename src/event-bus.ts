@@ -6,9 +6,11 @@ export type OctopusEventType =
   | "TentacleSelected"
   | "ResourceRequested"
   | "AuthorizationRequested"
+  | "ResourceUsed"
   | "MissionCompleted"
   | "MissionFailed"
   | "ParcelUpdated"
+  | "HarvestCreated"
   | "TentacleLearned";
 
 export interface OctopusEvent {
