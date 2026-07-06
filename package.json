@@ -16,11 +16,13 @@
     "build": "tsc --build",
     "prepare": "npm run build",
     "test": "vitest run src/__tests__",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "octopus:start": "tsx src/cli/octopus-start.ts"
   },
   "devDependencies": {
     "typescript": "^5.9.0",
-    "vitest": "^4.1.9"
+    "vitest": "^4.1.9",
+    "tsx": "^4.21.0"
   },
   "keywords": ["octopus", "engine", "coordinator", "guardian", "workflow"],
   "license": "MIT"
