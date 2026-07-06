@@ -29,7 +29,7 @@ app.get("/garden", (c) => c.json(engine.garden.getState()));
 app.get("/resources", async (c) => c.json(await engine.resources.inspect()));
 
 app.post("/mission", async (c) => {
-  const body = await c.req.json<Record<string, unknown>>().catch(() => ({}));
+  const body: Record<string, unknown> = await c.req.json<Record<string, unknown>>().catch(() => ({}));
   const state = engine.garden.getState();
   const parcelId = typeof body.parcelId === "string" ? body.parcelId : undefined;
   const parcel = state.parcels.find((item) => item.id === parcelId) ?? state.parcels[0];
@@ -54,4 +54,4 @@ app.post("/mission", async (c) => {
 const port = Number(process.env.PORT ?? 3000);
 
 serve({ fetch: app.fetch, port });
-console.log(`🐙 Octopus HTTP server listening on port ${port}`);
+console.log(`Octopus HTTP server listening on port ${port}`);
