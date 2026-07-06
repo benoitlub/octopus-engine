@@ -24,3 +24,14 @@ export type {
 export { Guardian } from "./guardian.js";
 export { Coordinator } from "./coordinator.js";
 export { defineModule } from "./module-task.js";
+
+export type {
+  ParcelStatus,
+  ResourceKind,
+  GardenerDecision,
+  ParcelSnapshot,
+  ResourceNeed,
+  ParcelReport,
+  GardenReport,
+} from "./gardener.js";
+export { GardenerConsole } from "./gardener.js";
