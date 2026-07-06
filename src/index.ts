@@ -55,3 +55,23 @@ export type {
   RhythmPlan,
 } from "./rhythm.js";
 export { OctopusRhythm, resolveDaypart } from "./rhythm.js";
+
+export type {
+  PolicyDecision,
+  ResourcePolicyRule,
+  PolicyCheckInput,
+  PolicyCheckResult,
+} from "./policy.js";
+export { PolicyManager } from "./policy.js";
+
+export type {
+  ResourceStatus,
+  ResourceRequest,
+  ResourceResult,
+  OctopusResource,
+  ResourceManagerReport,
+} from "./resource-manager.js";
+export { ResourceManager } from "./resource-manager.js";
+
+export type { MistralResourceOptions } from "./resources/mistral-resource.js";
+export { MistralResource } from "./resources/mistral-resource.js";
