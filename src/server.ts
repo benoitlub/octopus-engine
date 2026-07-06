@@ -56,18 +56,22 @@ app.post("/mission", async (c) => {
   }
 
   const missionId = `mission_${Date.now()}`;
+  const title = typeof body.title === "string" ? body.title : `Prepare a useful campaign for ${parcel.name}`;
   engine.garden.addMission({
     id: missionId,
     parcelId: parcel.id,
-    title: typeof body.title === "string" ? body.title : `Prepare a useful campaign for ${parcel.name}`,
+    title,
     status: "running",
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   });
+  await engine.events.emit("MissionStarted", { missionId, parcelId: parcel.id, title });
+  await engine.events.emit("TentacleSelected", { missionId, tentacleId: "marketing" });
+  await engine.events.emit("ResourceRequested", { missionId, resourceId: "mistral", authorized: authorizedResources.includes("mistral") });
 
   const mission = await engine.runtime.run({
     id: missionId,
-    title: typeof body.title === "string" ? body.title : `Prepare a useful campaign for ${parcel.name}`,
+    title,
     objective: typeof body.objective === "string" ? body.objective : parcel.objective,
     parcel,
     preferredTheme: "marketing",
@@ -77,6 +81,37 @@ app.post("/mission", async (c) => {
   });
 
   engine.garden.updateMission(missionId, { status: mission.status, output: mission.output });
+
+  if (mission.status === "waiting-authorization") {
+    await engine.events.emit("AuthorizationRequested", { missionId, parcelId: parcel.id, resourceId: mission.resourceResult?.resourceId ?? "mistral" });
+  } else if (mission.status === "completed") {
+    if (mission.resourceResult) {
+      const usage = mission.resourceResult.usage;
+      engine.garden.addResourceUsage({
+        id: `usage_${Date.now()}`,
+        missionId,
+        parcelId: parcel.id,
+        resourceId: mission.resourceResult.resourceId,
+        status: mission.resourceResult.status,
+        createdAt: new Date().toISOString(),
+        usage,
+      });
+      await engine.events.emit("ResourceUsed", { missionId, parcelId: parcel.id, resourceId: mission.resourceResult.resourceId, usage });
+    }
+    const text = typeof mission.output.text === "string" ? mission.output.text : JSON.stringify(mission.output);
+    engine.garden.addHarvest({
+      id: `harvest_${Date.now()}`,
+      missionId,
+      parcelId: parcel.id,
+      title,
+      createdAt: new Date().toISOString(),
+      preview: text.slice(0, 280),
+    });
+    await engine.events.emit("HarvestCreated", { missionId, parcelId: parcel.id, title });
+    await engine.events.emit("MissionCompleted", { missionId, parcelId: parcel.id });
+  } else {
+    await engine.events.emit("MissionFailed", { missionId, parcelId: parcel.id, reason: mission.summary });
+  }
 
   return c.json(mission);
 });
