@@ -11,11 +11,21 @@ export interface ResourceRequest {
   authorizedResources?: string[];
 }
 
+export interface ResourceUsage {
+  model?: string;
+  promptTokens?: number;
+  completionTokens?: number;
+  totalTokens?: number;
+  durationMs?: number;
+  estimatedCostEur?: number;
+}
+
 export interface ResourceResult {
   resourceId: string;
   status: "success" | "error" | "authorization-required";
   output: Record<string, unknown>;
   message?: string;
+  usage?: ResourceUsage;
 }
 
 export interface OctopusResource {
