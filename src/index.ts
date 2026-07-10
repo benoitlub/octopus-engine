@@ -86,7 +86,30 @@ export { MissionRuntime } from "./mission-runtime.js";
 export type { OctopusEventType, OctopusEvent, EventHandler } from "./event-bus.js";
 export { EventBus } from "./event-bus.js";
 
-export type { MissionRecord, GardenState } from "./garden-store.js";
+export type {
+  SeedKind,
+  SeedStatus,
+  CapabilityStability,
+  GuardianReaction,
+  SeedSignals,
+  SeedRecord,
+  SproutRecord,
+  CompostEntry,
+  CapabilityMetrics,
+  CapabilityRecord,
+  EvaluationFinding,
+  EvaluationRecord,
+} from "./garden-domain.js";
+
+export type { ResonanceThresholds, ResonanceResult } from "./resonance-engine.js";
+export { ResonanceEngine } from "./resonance-engine.js";
+
+export type {
+  MissionRecord,
+  ResourceUsageRecord,
+  HarvestRecord,
+  GardenState,
+} from "./garden-store.js";
 export { GardenStore, createDemoGardenStore } from "./garden-store.js";
 
 export type { OctopusStartResult } from "./octopus.js";
