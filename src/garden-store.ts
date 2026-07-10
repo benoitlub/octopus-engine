@@ -1,6 +1,13 @@
 import type { ParcelSnapshot, GardenReport } from "./gardener.js";
 import type { OctopusEvent } from "./event-bus.js";
 import type { ResourceUsage } from "./resource-manager.js";
+import type {
+  CapabilityRecord,
+  CompostEntry,
+  EvaluationRecord,
+  SeedRecord,
+  SproutRecord,
+} from "./garden-domain.js";
 
 export interface MissionRecord {
   id: string;
@@ -26,6 +33,7 @@ export interface HarvestRecord {
   id: string;
   missionId: string;
   parcelId: string;
+  seedId?: string;
   title: string;
   createdAt: string;
   preview: string;
@@ -37,6 +45,11 @@ export interface GardenState {
   events: OctopusEvent[];
   resourceUsage: ResourceUsageRecord[];
   harvests: HarvestRecord[];
+  seeds: SeedRecord[];
+  sprouts: SproutRecord[];
+  compost: CompostEntry[];
+  capabilities: CapabilityRecord[];
+  evaluations: EvaluationRecord[];
   lastReport?: GardenReport;
 }
 
@@ -50,6 +63,11 @@ export class GardenStore {
       events: initial?.events ?? [],
       resourceUsage: initial?.resourceUsage ?? [],
       harvests: initial?.harvests ?? [],
+      seeds: initial?.seeds ?? [],
+      sprouts: initial?.sprouts ?? [],
+      compost: initial?.compost ?? [],
+      capabilities: initial?.capabilities ?? [],
+      evaluations: initial?.evaluations ?? [],
       lastReport: initial?.lastReport,
     };
   }
@@ -61,6 +79,11 @@ export class GardenStore {
       events: [...this.state.events],
       resourceUsage: [...this.state.resourceUsage],
       harvests: [...this.state.harvests],
+      seeds: [...this.state.seeds],
+      sprouts: [...this.state.sprouts],
+      compost: [...this.state.compost],
+      capabilities: [...this.state.capabilities],
+      evaluations: [...this.state.evaluations],
       lastReport: this.state.lastReport,
     };
   }
@@ -95,6 +118,56 @@ export class GardenStore {
 
   addHarvest(record: HarvestRecord): void {
     this.state.harvests.push(record);
+    if (record.seedId) this.updateSeed(record.seedId, { status: "harvested" });
+  }
+
+  plantSeed(seed: SeedRecord): void {
+    if (!this.state.parcels.some((parcel) => parcel.id === seed.parcelId)) {
+      throw new Error(`Unknown parcel: ${seed.parcelId}`);
+    }
+    if (this.state.seeds.some((item) => item.id === seed.id)) {
+      throw new Error(`Seed already exists: ${seed.id}`);
+    }
+    this.state.seeds.push(seed);
+  }
+
+  updateSeed(id: string, patch: Partial<SeedRecord>): void {
+    const seed = this.state.seeds.find((item) => item.id === id);
+    if (!seed) return;
+    Object.assign(seed, patch, { updatedAt: new Date().toISOString() });
+  }
+
+  addSprout(sprout: SproutRecord): void {
+    if (!this.state.seeds.some((seed) => seed.id === sprout.seedId)) {
+      throw new Error(`Unknown seed: ${sprout.seedId}`);
+    }
+    this.state.sprouts.push(sprout);
+    this.updateSeed(sprout.seedId, { status: "sprouted" });
+  }
+
+  compostSeed(entry: CompostEntry): void {
+    if (!this.state.seeds.some((seed) => seed.id === entry.seedId)) {
+      throw new Error(`Unknown seed: ${entry.seedId}`);
+    }
+    this.state.compost.push(entry);
+    this.updateSeed(entry.seedId, { status: "composted" });
+  }
+
+  upsertCapability(capability: CapabilityRecord): void {
+    const index = this.state.capabilities.findIndex((item) => item.id === capability.id);
+    if (index >= 0) this.state.capabilities[index] = capability;
+    else this.state.capabilities.push(capability);
+  }
+
+  addEvaluation(evaluation: EvaluationRecord): void {
+    this.state.evaluations.push(evaluation);
+    if (!evaluation.capabilityId) return;
+    const capability = this.state.capabilities.find((item) => item.id === evaluation.capabilityId);
+    if (!capability) return;
+    if (evaluation.reaction === "isolate" || evaluation.reaction === "suspend" || evaluation.reaction === "block") {
+      capability.stability = "isolated";
+      capability.updatedAt = evaluation.createdAt;
+    }
   }
 }
 
