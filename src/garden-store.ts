@@ -33,6 +33,7 @@ export interface HarvestRecord {
   id: string;
   missionId: string;
   parcelId: string;
+  seedId?: string;
   title: string;
   createdAt: string;
   preview: string;
@@ -117,8 +118,7 @@ export class GardenStore {
 
   addHarvest(record: HarvestRecord): void {
     this.state.harvests.push(record);
-    const seed = this.state.seeds.find((item) => item.id === record.missionId || item.id === record.id);
-    if (seed) this.updateSeed(seed.id, { status: "harvested" });
+    if (record.seedId) this.updateSeed(record.seedId, { status: "harvested" });
   }
 
   plantSeed(seed: SeedRecord): void {
