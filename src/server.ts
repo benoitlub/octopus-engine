@@ -1,12 +1,37 @@
 import { serve } from "@hono/node-server";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
+import type { SeedRecord } from "./garden-domain.js";
 import { OctopusEngine } from "./octopus.js";
 import { renderGardenerPage } from "./gardener-page.js";
+import { SeedResonanceCommandHandler } from "./seed-resonance-command.js";
 
 const app = new Hono();
 const engine = new OctopusEngine();
+const seedResonance = new SeedResonanceCommandHandler(engine.events);
 let lastStart: Awaited<ReturnType<OctopusEngine["start"]>> | null = null;
+
+function isSeedRecord(value: unknown): value is SeedRecord {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const seed = value as Partial<SeedRecord>;
+  const signals = seed.signals;
+  return (
+    typeof seed.id === "string" &&
+    typeof seed.parcelId === "string" &&
+    typeof seed.kind === "string" &&
+    typeof seed.title === "string" &&
+    typeof seed.content === "string" &&
+    typeof seed.status === "string" &&
+    typeof seed.createdAt === "string" &&
+    typeof seed.updatedAt === "string" &&
+    Boolean(signals) &&
+    typeof signals?.maturity === "number" &&
+    typeof signals.coherence === "number" &&
+    typeof signals.utility === "number" &&
+    typeof signals.confidence === "number" &&
+    typeof signals.estimatedCost === "number"
+  );
+}
 
 app.use(
   "*",
@@ -21,7 +46,15 @@ app.get("/", (c) =>
   c.json({
     name: "octopus-engine",
     status: "alive",
-    routes: ["GET /health", "GET /brief", "GET /garden", "GET /garden-ui", "GET /resources", "POST /mission"],
+    routes: [
+      "GET /health",
+      "GET /brief",
+      "GET /garden",
+      "GET /garden-ui",
+      "GET /resources",
+      "POST /mission",
+      "POST /seeds/resonance",
+    ],
   }),
 );
 
@@ -41,6 +74,19 @@ app.get("/gardener", (c) => c.html(renderGardenerPage()));
 app.get("/garden", (c) => c.json(engine.garden.getState()));
 
 app.get("/resources", async (c) => c.json(await engine.resources.inspect()));
+
+app.post("/seeds/resonance", async (c) => {
+  const body: Record<string, unknown> = await c.req.json<Record<string, unknown>>().catch(() => ({}));
+  if (!isSeedRecord(body.seed)) {
+    return c.json({ status: "failed", message: "A valid seed snapshot is required." }, 400);
+  }
+
+  const proposedCapabilities = Array.isArray(body.proposedCapabilities)
+    ? body.proposedCapabilities.filter((item): item is string => typeof item === "string")
+    : [];
+  const result = await seedResonance.execute({ seed: body.seed, proposedCapabilities });
+  return c.json({ status: "evaluated", seedId: body.seed.id, result });
+});
 
 app.post("/mission", async (c) => {
   const body: Record<string, unknown> = await c.req.json<Record<string, unknown>>().catch(() => ({}));
