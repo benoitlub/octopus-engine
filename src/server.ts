@@ -1,6 +1,7 @@
 import { serve } from "@hono/node-server";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
+import { CreateSproutCommandHandler } from "./create-sprout-command.js";
 import type { SeedRecord } from "./garden-domain.js";
 import { OctopusEngine } from "./octopus.js";
 import { renderGardenerPage } from "./gardener-page.js";
@@ -9,6 +10,7 @@ import { SeedResonanceCommandHandler } from "./seed-resonance-command.js";
 const app = new Hono();
 const engine = new OctopusEngine();
 const seedResonance = new SeedResonanceCommandHandler(engine.events);
+const createSprout = new CreateSproutCommandHandler(engine.events);
 let lastStart: Awaited<ReturnType<OctopusEngine["start"]>> | null = null;
 
 function isSeedRecord(value: unknown): value is SeedRecord {
@@ -54,6 +56,7 @@ app.get("/", (c) =>
       "GET /resources",
       "POST /mission",
       "POST /seeds/resonance",
+      "POST /seeds/sprout",
     ],
   }),
 );
@@ -70,9 +73,7 @@ app.get("/brief", async (c) => {
 
 app.get("/garden-ui", (c) => c.html(renderGardenerPage()));
 app.get("/gardener", (c) => c.html(renderGardenerPage()));
-
 app.get("/garden", (c) => c.json(engine.garden.getState()));
-
 app.get("/resources", async (c) => c.json(await engine.resources.inspect()));
 
 app.post("/seeds/resonance", async (c) => {
@@ -88,6 +89,33 @@ app.post("/seeds/resonance", async (c) => {
   return c.json({ status: "evaluated", seedId: body.seed.id, result });
 });
 
+app.post("/seeds/sprout", async (c) => {
+  const body: Record<string, unknown> = await c.req.json<Record<string, unknown>>().catch(() => ({}));
+  if (!isSeedRecord(body.seed)) {
+    return c.json({ status: "failed", message: "A valid seed snapshot is required." }, 400);
+  }
+  if (body.decision !== "sprout") {
+    return c.json({ status: "failed", message: "An explicit sprout decision is required." }, 400);
+  }
+
+  const proposedCapabilities = Array.isArray(body.proposedCapabilities)
+    ? body.proposedCapabilities.filter((item): item is string => typeof item === "string")
+    : [];
+
+  try {
+    const sprout = await createSprout.execute({
+      seed: body.seed,
+      decision: "sprout",
+      rationale: typeof body.rationale === "string" ? body.rationale : undefined,
+      proposedCapabilities,
+    });
+    return c.json({ status: "sprouted", seedId: body.seed.id, sprout });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unable to create sprout.";
+    return c.json({ status: "failed", message }, 409);
+  }
+});
+
 app.post("/mission", async (c) => {
   const body: Record<string, unknown> = await c.req.json<Record<string, unknown>>().catch(() => ({}));
   const state = engine.garden.getState();
@@ -97,9 +125,7 @@ app.post("/mission", async (c) => {
     ? body.authorize.filter((item): item is string => typeof item === "string")
     : [];
 
-  if (!parcel) {
-    return c.json({ status: "failed", message: "No parcel available." }, 400);
-  }
+  if (!parcel) return c.json({ status: "failed", message: "No parcel available." }, 400);
 
   const missionId = `mission_${Date.now()}`;
   const title = typeof body.title === "string" ? body.title : `Prepare a useful campaign for ${parcel.name}`;
@@ -128,11 +154,7 @@ app.post("/mission", async (c) => {
   });
 
   if (mission.tentacleId) {
-    await engine.events.emit("TentacleSelected", {
-      missionId,
-      parcelId: parcel.id,
-      tentacleId: mission.tentacleId,
-    });
+    await engine.events.emit("TentacleSelected", { missionId, parcelId: parcel.id, tentacleId: mission.tentacleId });
   }
 
   if (mission.status === "waiting-authorization") {
@@ -161,11 +183,7 @@ app.post("/mission", async (c) => {
       title,
       preview: text.slice(0, 280),
     });
-    await engine.events.emit("MissionCompleted", {
-      missionId,
-      parcelId: parcel.id,
-      output: mission.output,
-    });
+    await engine.events.emit("MissionCompleted", { missionId, parcelId: parcel.id, output: mission.output });
   } else {
     await engine.events.emit("MissionFailed", {
       missionId,
@@ -179,6 +197,5 @@ app.post("/mission", async (c) => {
 });
 
 const port = Number(process.env.PORT ?? 3000);
-
 serve({ fetch: app.fetch, port });
 console.log(`Octopus HTTP server listening on port ${port}`);
