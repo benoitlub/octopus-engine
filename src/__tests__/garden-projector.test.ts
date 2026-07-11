@@ -49,6 +49,64 @@ describe("GardenProjector", () => {
     ]);
   });
 
+  it("projects an external Seed resonance evaluation without deciding growth", async () => {
+    const events = new EventBus();
+    const garden = new GardenStore({
+      parcels: [{
+        id: "parcel-1",
+        name: "Laboratoire",
+        kind: "project",
+        objective: "Observer une idée.",
+        status: "watch",
+        signals: { freshness: 100, traction: 0, revenue: 0 },
+        notes: [],
+      }],
+    });
+    new GardenProjector(events, garden).connect();
+
+    await events.emit("SeedPlanted", {
+      seed: {
+        id: "seed-1",
+        parcelId: "parcel-1",
+        kind: "idea",
+        title: "Une idée dormante",
+        content: "Attendre de nouvelles observations.",
+        status: "seed",
+        createdAt: "2026-07-11T12:00:00.000Z",
+        updatedAt: "2026-07-11T12:00:00.000Z",
+        signals: { maturity: 20, coherence: 40, utility: 30, confidence: 25, estimatedCost: 0.1 },
+      },
+    });
+    await events.emit("SeedResonanceEvaluated", {
+      seedId: "seed-1",
+      score: 57,
+      decision: "resonate",
+      reasons: ["Nouvelle observation Publisher"],
+      signals: { maturity: 55, coherence: 70, utility: 65, confidence: 60, estimatedCost: 0.1 },
+    });
+
+    const state = garden.getState();
+    expect(state.seeds[0]?.status).toBe("resonating");
+    expect(state.seeds[0]?.signals.maturity).toBe(55);
+    expect(state.sprouts).toHaveLength(0);
+    expect(state.events.at(-1)?.type).toBe("SeedResonanceEvaluated");
+    expect(state.events.at(-1)?.payload.decision).toBe("resonate");
+  });
+
+  it("ignores resonance projections for an unknown Seed", async () => {
+    const events = new EventBus();
+    const garden = new GardenStore();
+    new GardenProjector(events, garden).connect();
+
+    await events.emit("SeedResonanceEvaluated", {
+      seedId: "missing",
+      signals: { maturity: 80, coherence: 80, utility: 80, confidence: 80, estimatedCost: 0.1 },
+    });
+
+    expect(garden.getState().seeds).toHaveLength(0);
+    expect(garden.getState().events).toHaveLength(1);
+  });
+
   it("connects only once", async () => {
     const events = new EventBus();
     const garden = new GardenStore();
