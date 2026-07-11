@@ -12,6 +12,7 @@ export type OctopusEventType =
   | "ParcelUpdated"
   | "SeedPlanted"
   | "SeedUpdated"
+  | "SeedResonanceEvaluated"
   | "SproutCreated"
   | "HarvestCreated"
   | "TentacleLearned";

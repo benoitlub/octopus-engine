@@ -1,5 +1,5 @@
 import type { EventBus, OctopusEvent, OctopusEventType } from "./event-bus.js";
-import type { SeedRecord, SproutRecord } from "./garden-domain.js";
+import type { SeedRecord, SeedSignals, SeedStatus, SproutRecord } from "./garden-domain.js";
 import type { GardenStore, HarvestRecord, MissionRecord, ResourceUsageRecord } from "./garden-store.js";
 import type { ResourceUsage } from "./resource-manager.js";
 
@@ -17,6 +17,7 @@ const PROJECTED_EVENTS: OctopusEventType[] = [
   "ParcelUpdated",
   "SeedPlanted",
   "SeedUpdated",
+  "SeedResonanceEvaluated",
   "SproutCreated",
   "HarvestCreated",
   "TentacleLearned",
@@ -39,6 +40,21 @@ function usageValue(payload: Record<string, unknown>): ResourceUsage | undefined
 function seedValue(payload: Record<string, unknown>): SeedRecord | undefined {
   const seed = recordValue(payload, "seed") as SeedRecord | undefined;
   return seed && typeof seed.id === "string" && typeof seed.parcelId === "string" ? seed : undefined;
+}
+
+function seedSignalsValue(payload: Record<string, unknown>): SeedSignals | undefined {
+  const signals = recordValue(payload, "signals") as Partial<SeedSignals> | undefined;
+  if (!signals) return undefined;
+  const values = [signals.maturity, signals.coherence, signals.utility, signals.confidence, signals.estimatedCost];
+  if (!values.every((value) => typeof value === "number" && Number.isFinite(value))) return undefined;
+  return signals as SeedSignals;
+}
+
+function seedStatusValue(payload: Record<string, unknown>): SeedStatus | undefined {
+  const value = stringValue(payload, "status");
+  return value === "seed" || value === "resonating" || value === "sprouted" || value === "harvested" || value === "composted"
+    ? value
+    : undefined;
 }
 
 function sproutValue(payload: Record<string, unknown>): SproutRecord | undefined {
@@ -77,6 +93,8 @@ export class GardenProjector {
       this.projectResourceUsage(event);
     } else if (event.type === "SeedPlanted" || event.type === "SeedUpdated") {
       this.projectSeed(event);
+    } else if (event.type === "SeedResonanceEvaluated") {
+      this.projectSeedResonance(event);
     } else if (event.type === "SproutCreated") {
       this.projectSprout(event);
     } else if (event.type === "HarvestCreated") {
@@ -146,6 +164,20 @@ export class GardenProjector {
     }
 
     this.garden.plantSeed(seed);
+  }
+
+  private projectSeedResonance(event: OctopusEvent): void {
+    const seedId = stringValue(event.payload, "seedId");
+    const signals = seedSignalsValue(event.payload);
+    if (!seedId || !signals) return;
+
+    const exists = this.garden.getState().seeds.some((seed) => seed.id === seedId);
+    if (!exists) return;
+
+    this.garden.updateSeed(seedId, {
+      signals,
+      status: seedStatusValue(event.payload) ?? "resonating",
+    });
   }
 
   private projectSprout(event: OctopusEvent): void {
