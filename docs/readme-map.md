@@ -10,9 +10,11 @@
 ## Pour comprendre l'architecture
 
 1. CONSTITUTION.md
-2. docs/architecture.md
-3. ADR/README.md
-4. docs/glossary.md
+2. constitutions/README.md
+3. docs/responsibility-map.md
+4. docs/architecture.md
+5. ADR/README.md
+6. docs/glossary.md
 
 ## Pour préparer le code
 
@@ -26,4 +28,5 @@
 
 1. CODE_OF_CONDUCT.md
 2. docs/council.md
-3. docs/ecology.md
+3. constitutions/gerard-ethology.md
+4. docs/ecology.md

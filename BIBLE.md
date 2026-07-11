@@ -160,19 +160,9 @@ Ils ne décident rien.
 
 ## 5. Écologie d'Octopus
 
-Cette section est métaphorique. Elle appartient au langage humain et doit toujours être lue à la lumière d'ADR-0003.
+Cette section a été déplacée vers la Constitution Gérard.
 
-Chaque jour, Octopus se nourrit et digère.
-
-Il absorbe des données, les trie, les résume, les relie, puis oublie ce qui n'est plus utile.
-
-Quand un utilisateur lui confie une mission, il passe en mode chasse : toutes les ressources utiles convergent vers l'objectif, dans les limites du budget et des permissions.
-
-Pour survivre, il observe son environnement, surveille les risques, protège ses ressources et aménage son nid.
-
-Le nid est son espace de travail : Notion, GitHub, Drive, Obsidian ou tout autre support choisi par l'application.
-
-Sa progéniture n'est pas biologique : ce sont ses productions — textes, campagnes, analyses, livres, workflows, assets — déposées proprement pour pouvoir vivre hors de lui.
+Voir : `constitutions/gerard-ethology.md`.
 
 ## 6. Garden — Serre Aquatique
 

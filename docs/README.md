@@ -2,6 +2,8 @@
 
 ## Fondations
 
+- [Constitutions](../constitutions/README.md)
+- [Carte des responsabilités](responsibility-map.md)
 - [Architecture](architecture.md)
 - [Anatomie](anatomy.md)
 - [Écologie](ecology.md)

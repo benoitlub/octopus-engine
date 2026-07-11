@@ -27,6 +27,7 @@ Version 0.2 — architecture documentaire consolidée.
 
 - [MANIFESTO.md](MANIFESTO.md) — pourquoi Octopus existe.
 - [CONSTITUTION.md](CONSTITUTION.md) — les lois non négociables.
+- [constitutions/](constitutions/) — séparation des responsabilités documentaires.
 - [BIBLE.md](BIBLE.md) — synthèse vivante du projet.
 - [ADR/](ADR/) — décisions d'architecture.
 - [docs/](docs/) — spécifications et notes de conception.

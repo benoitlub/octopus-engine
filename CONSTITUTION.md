@@ -6,6 +6,34 @@ Octopus est conçu comme un écosystème vivant.
 
 À l'image d'une serre aquatique, les ressources ne sont pas consommées puis oubliées ; elles circulent, se transforment et enrichissent continuellement l'ensemble du système.
 
+## Clarification canonique
+
+Le Poulpe n'est pas Octopus Engine.
+
+Octopus Engine n'a aucune vie intérieure.
+
+Toute autonomie appartient aux applications.
+
+Le Core orchestre uniquement.
+
+## Clarification Event Bus
+
+Les workflows métier restent déterministes.
+
+L'Event Bus est réservé à l'audit, la télémétrie, les notifications, les événements internes, le découplage et les effets secondaires.
+
+Ces deux règles coexistent.
+
+## Constitutions liées
+
+- Constitution Core : ce document.
+- Constitution Publisher : `constitutions/publisher.md`.
+- Constitution Poulpe Fiction : `constitutions/poulpe-fiction.md`.
+- Constitution Garden : `constitutions/garden.md`.
+- Constitution Blacklace : `constitutions/blacklace.md`.
+- Constitution Gérard : `constitutions/gerard-ethology.md`.
+- ADR : `ADR/`.
+
 Une idée peut devenir un projet. Un projet produit de l'expérience. L'expérience nourrit de nouvelles idées. Les connaissances se renforcent par leurs interactions plutôt que par leur accumulation.
 
 L'objectif d'Octopus est de favoriser des cycles vertueux où les intentions mûrissent, les réalisations produisent de nouveaux apprentissages et chaque contribution augmente durablement la valeur de l'écosystème.

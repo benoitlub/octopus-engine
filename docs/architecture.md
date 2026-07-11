@@ -108,9 +108,11 @@ Ils sont les points de contact avec l'environnement : API, fichiers, bases, serv
 
 ## Event Bus
 
-L'Event Bus est réservé à l'audit, au tracing, aux notifications et aux effets secondaires non critiques.
+L'Event Bus est réservé à l'audit, au tracing, à la télémétrie, aux notifications, aux événements internes, au découplage et aux effets secondaires non critiques.
 
 Il ne pilote pas le flux principal d'une mission utilisateur.
+
+Les workflows métier restent déterministes.
 
 ## Guardian
 
