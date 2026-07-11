@@ -105,6 +105,8 @@ export type { ResonanceThresholds, ResonanceResult } from "./resonance-engine.js
 export { ResonanceEngine } from "./resonance-engine.js";
 export type { EvaluateSeedResonanceCommand } from "./seed-resonance-command.js";
 export { SeedResonanceCommandHandler } from "./seed-resonance-command.js";
+export type { CreateSproutCommand } from "./create-sprout-command.js";
+export { CreateSproutCommandHandler } from "./create-sprout-command.js";
 
 export type {
   MissionRecord,
