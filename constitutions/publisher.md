@@ -2,107 +2,114 @@
 
 Références : Constitution Core, Constitution Garden, Constitution Gérard.
 
-Publisher Studio est une application d’observation utilisant Octopus Engine.
+## Statut
 
-Publisher devient :
+Publisher Studio est le **Knowledge Observatory** et la serre autonome du Poulpe.
 
-- l'observateur ;
-- le chercheur ;
-- le curateur ;
-- le laboratoire d'analyse ;
-- le producteur de connaissances.
+Publisher n'est plus un assistant de rédaction. Il observe des sources autorisées, compare, mémorise et produit des connaissances structurées.
 
-Publisher n'exécute jamais de mission métier.
+> Publisher observe et cultive. Le Poulpe apprend et choisit. Octopus Engine orchestre. Le Garden montre.
 
-Il transforme des sources en connaissances structurées.
+## Responsabilités
 
 Publisher est responsable de :
 
-- observation
-- ingestion
-- radar
-- observatoire
-- comparaison
-- knowledge packs
+- ingestion ;
+- radar ;
+- observatoire ;
+- déduplication ;
+- comparaison ;
+- mémoire des observations ;
+- Knowledge Packs ;
+- boutures et candidates Seeds ;
+- traces d'activité et d'erreur.
 
-Publisher ne fait jamais :
+Publisher ne :
 
-- décider des missions
-- remplacer le Poulpe
-- devenir le Runtime
+- décide jamais des missions ;
+- remplace jamais le Poulpe ;
+- devient jamais le Runtime ;
+- publie jamais sans validation adaptée ;
+- possède jamais la curiosité ou la croissance.
+
+## Autonomie obligatoire
+
+Le Radar et l'Observatoire doivent s'auto-alimenter selon un rythme configuré, même lorsque personne n'ouvre Publisher, Garden ou Poulpe Fiction.
+
+L'interface ne déclenche pas l'activité. Elle affiche l'état produit par les boucles de fond.
+
+Une boucle autonome minimale peut :
+
+- interroger une source autorisée ;
+- dédupliquer les signaux ;
+- créer ou mettre à jour des candidats ;
+- produire des observations ;
+- comparer avec la mémoire ;
+- préparer un Knowledge Pack ;
+- proposer une Seed, une Harvest, une comparaison, un article ou une aventure ;
+- conserver une trace et une erreur relançable.
+
+## Pipeline canonique
+
+Source autorisée → Ingestion → Radar → Candidats → Observatoire → Observation → Comparaison → Knowledge → Knowledge Pack → Mémoire / Serre → Poulpe
 
 ## Frontière
 
-Publisher AI n'est pas Octopus.
+Publisher est une application métier utilisant Octopus Engine.
 
-Publisher AI n'est pas une parcelle.
+Octopus Engine reste le moteur d'orchestration invisible.
 
-Publisher AI est l'interface métier côté client.
+Le Garden est un read model et un hublot sur la Serre ; il n'est pas la source d'autorité.
 
-Octopus Engine est le moteur d’orchestration invisible.
+Une parcelle est un espace projet, client, domaine ou univers dans le Garden.
 
-Le Knowledge Garden est le territoire de travail.
+## Sources et connecteurs
 
-Une parcelle est un espace client/projet/domaine dans le Garden.
+Toute source doit déclarer au minimum :
 
-Une persona est la voix conversationnelle utilisée par Publisher AI.
+- id ;
+- type ;
+- rythme ;
+- limites ;
+- coût ;
+- politique de déduplication ;
+- statut ;
+- dernière exécution ;
+- dernière erreur.
 
-Une mission est une intention structurée envoyée à Octopus.
+Un connecteur ne décide rien. Il expose une capability technique.
 
-## Pipeline
+## Enrichissement IA
 
-Source
+Une IA est une capability d'enrichissement, jamais le moteur du Radar ni de l'Observatoire.
 
-↓
+Un modèle peut résumer, classer, reformuler, extraire ou comparer. Il ne décide pas ce qui attire le Poulpe, ce qui devient une Seed, d'une publication, d'une dépense ou d'une action sensible.
 
-Observation
+Publisher doit rester fonctionnel sans fournisseur d'IA externe.
 
-↓
+## Persistance minimale
 
-Extraction
+Les éléments suivants doivent survivre à un redémarrage :
 
-↓
+- sources ;
+- runs d'ingestion ;
+- candidats ;
+- observations ;
+- comparaisons ;
+- Knowledge Packs ;
+- curiosités ;
+- Seeds proposées ;
+- HarvestDrafts ;
+- erreurs ;
+- traces d'activité.
 
-Knowledge
-
-↓
-
-Knowledge Pack
-
-↓
-
-Export Octopus
-
-## Réinterprétation de l'existant
-
-Ne crée pas une deuxième application.
-
-Réutilise autant que possible :
-
-- Seeds
-- Harvests
-- Reports
-- Garden
-- Mission history
-- Workspace
-- Assets
-- Timeline
-- Activity
-- Knowledge cache
-
-Une analyse terminée peut devenir un Harvest.
-
-Une connaissance validée peut être proposée au Poulpe comme nourriture, contexte ou candidate Seed.
-
-Un rapport peut devenir un Knowledge Report.
-
-Le Garden devient un jardin de connaissances.
+Un état conservé uniquement dans le navigateur ne constitue pas une autonomie réelle.
 
 ## Knowledge Pack
 
-Créer un objet métier explicite.
+Objet métier exportable vers le Poulpe et Octopus Engine sans dépendance directe.
 
-Exemple :
+Champs minimaux recommandés :
 
 - id
 - title
@@ -115,29 +122,31 @@ Exemple :
 - generatedAt
 - sourceReferences
 
-Cet objet doit être exportable vers Octopus Engine sans dépendance directe.
+## Politique d'action
 
-## UX
+- ingestion, observation, comparaison et préparation : autonomes ;
+- jeu, rêve et simulation internes : autonomes et réversibles ;
+- publication, contact externe, dépense, déploiement, suppression ou action publique : Guardian et validation adaptée.
 
-L'utilisateur doit avoir l'impression de travailler dans :
+## Anti-doublon architectural
 
-un laboratoire,
+Ne pas créer une seconde architecture Publisher.
 
-une salle de veille,
+Réutiliser autant que possible Seeds, HarvestDrafts, Garden, Activity, Memory, Observations et Knowledge Packs.
 
-un centre de renseignement,
+## Critères de fonctionnement réel
 
-pas dans un chatbot.
+Publisher n'est considéré autonome que si :
 
-Limiter fortement les interfaces de discussion.
+1. une source peut être configurée ;
+2. une exécution planifiée démarre sans visite humaine ;
+3. les résultats sont persistés ;
+4. une observation apparaît dans le Garden ;
+5. les doublons sont reconnus ;
+6. les erreurs sont visibles et relançables ;
+7. le système reprend après redémarrage ;
+8. aucun LLM n'est indispensable au pipeline minimal.
 
-Privilégier :
+## Formule
 
-- cartes
-- rapports
-- tableaux
-- timelines
-- observations
-- classifications
-- relations
-- connaissances
+**Publisher n'attend pas qu'on le regarde pour observer. Le Garden n'allume pas le Poulpe : il ouvre seulement le hublot.**
