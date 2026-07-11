@@ -1,5 +1,6 @@
 import { EventBus } from "./event-bus.js";
 import { GardenStore, createDemoGardenStore, type GardenStore as GardenStoreType } from "./garden-store.js";
+import { GardenProjector } from "./garden-projector.js";
 import { GardenerConsole } from "./gardener.js";
 import { TentacleRegistry, type TentacleProfile } from "./tentacle.js";
 import { PolicyManager } from "./policy.js";
@@ -45,6 +46,7 @@ function createDefaultTentacles(): TentacleProfile[] {
 export class OctopusEngine {
   readonly events = new EventBus();
   readonly garden: GardenStoreType;
+  readonly gardenProjector: GardenProjector;
   readonly gardener = new GardenerConsole();
   readonly rhythm = new OctopusRhythm();
   readonly tentacles: TentacleRegistry;
@@ -53,17 +55,14 @@ export class OctopusEngine {
 
   constructor(garden = createDemoGardenStore()) {
     this.garden = garden;
+    this.gardenProjector = new GardenProjector(this.events, this.garden);
+    this.gardenProjector.connect();
     this.tentacles = new TentacleRegistry(createDefaultTentacles());
     this.resources = new ResourceManager(
       [new MistralResource()],
       new PolicyManager([{ resourceId: "mistral", decision: "ask", reason: "Mistral requires gardener approval by default." }]),
     );
     this.runtime = new MissionRuntime(this.tentacles, this.resources);
-
-    this.events.on("MissionQueued", (event) => this.garden.appendEvent(event));
-    this.events.on("MissionStarted", (event) => this.garden.appendEvent(event));
-    this.events.on("MissionCompleted", (event) => this.garden.appendEvent(event));
-    this.events.on("AuthorizationRequested", (event) => this.garden.appendEvent(event));
   }
 
   async start(): Promise<OctopusStartResult> {
@@ -86,29 +85,39 @@ export class OctopusEngine {
 
     if (candidate) {
       const missionId = `mission_${Date.now()}`;
-      this.garden.addMission({
-        id: missionId,
+      const title = `Prepare a useful campaign for ${candidate.name}`;
+      await this.events.emit("MissionQueued", {
+        missionId,
         parcelId: candidate.id,
-        title: `Prepare a useful campaign for ${candidate.name}`,
-        status: "queued",
+        title,
         createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
       });
-      await this.events.emit("MissionQueued", { missionId, parcelId: candidate.id });
-      await this.events.emit("MissionStarted", { missionId, parcelId: candidate.id });
+      await this.events.emit("MissionStarted", { missionId, parcelId: candidate.id, title });
 
       mission = await this.runtime.run({
         id: missionId,
-        title: `Prepare a useful campaign for ${candidate.name}`,
+        title,
         objective: candidate.objective,
         parcel: candidate,
         preferredTheme: "marketing",
         requiredCapabilities: ["campaign.generate"],
       });
 
-      this.garden.updateMission(missionId, { status: mission.status, output: mission.output });
-      if (mission.status === "waiting-authorization") await this.events.emit("AuthorizationRequested", { missionId, resource: "mistral" });
-      if (mission.status === "completed") await this.events.emit("MissionCompleted", { missionId, parcelId: candidate.id });
+      if (mission.tentacleId) {
+        await this.events.emit("TentacleSelected", { missionId, parcelId: candidate.id, tentacleId: mission.tentacleId });
+      }
+      if (mission.status === "waiting-authorization") {
+        await this.events.emit("AuthorizationRequested", {
+          missionId,
+          parcelId: candidate.id,
+          resourceId: mission.resourceResult?.resourceId ?? "mistral",
+          output: mission.output,
+        });
+      } else if (mission.status === "completed") {
+        await this.events.emit("MissionCompleted", { missionId, parcelId: candidate.id, output: mission.output });
+      } else {
+        await this.events.emit("MissionFailed", { missionId, parcelId: candidate.id, reason: mission.summary, output: mission.output });
+      }
     }
 
     return {
