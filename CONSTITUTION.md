@@ -1,259 +1,130 @@
-# Octopus Core Constitution v1.0 — Draft épuré
+# Octopus Engine — Constitution Core v2.0
 
-## Préambule
+## Statut
 
-Octopus est conçu comme un écosystème vivant.
+Version 2.0 — Constitution active, alignée avec la Constitution vivante Notion du 10 juillet 2026.
 
-À l'image d'une serre aquatique, les ressources ne sont pas consommées puis oubliées ; elles circulent, se transforment et enrichissent continuellement l'ensemble du système.
+Ce document contient les lois et invariants d'Octopus Core. Les comportements propres à Publisher, Garden, Poulpe Fiction, Gérard ou Blacklace vivent dans `constitutions/` et les décisions détaillées dans `ADR/`.
 
-## Clarification canonique
+## Nature d'Octopus
 
-Le Poulpe n'est pas Octopus Engine.
+Octopus Engine est un moteur universel d'orchestration et d'exécution.
 
-Octopus Engine n'a aucune vie intérieure.
+Il n'est ni un agent autonome généraliste, ni un chatbot, ni une mascotte, ni un personnage.
 
-Toute autonomie appartient aux applications.
+Le Poulpe vivant utilise Octopus Engine pour agir, mais ne se confond jamais avec lui.
 
-Le Core orchestre uniquement.
+## Séparation canonique
+
+- **Octopus Engine** : moteur neutre, planification, orchestration, policies, exécution et traces.
+- **Le Poulpe** : intelligence vivante, curiosité, mémoire de croissance, jeu, rêve, apprentissage et choix d'exploration.
+- **Publisher** : serre d'observation et Knowledge Observatory ; collecte, compare, mémorise et produit des Knowledge Packs.
+- **Garden** : read model et hublot visible sur les parcelles, curiosités, cultures, récoltes et activités.
+- **Poulpe Fiction** : cabane de départ ; conversation, préparation des sacs, simulation, jeu et préparation des aventures.
+- **Applications** : adapters, ressources, connaissances et greffons ; elles ne modifient jamais le Core.
 
 ## Clarification Event Bus
 
 Les workflows métier restent déterministes.
 
-L'Event Bus est réservé à l'audit, la télémétrie, les notifications, les événements internes, le découplage et les effets secondaires.
-
-Ces deux règles coexistent.
-
-## Constitutions liées
-
-- Constitution Core : ce document.
-- Constitution Publisher : `constitutions/publisher.md`.
-- Constitution Poulpe Fiction : `constitutions/poulpe-fiction.md`.
-- Constitution Garden : `constitutions/garden.md`.
-- Constitution Blacklace : `constitutions/blacklace.md`.
-- Constitution Gérard : `constitutions/gerard-ethology.md`.
-- ADR : `ADR/`.
-
-Une idée peut devenir un projet. Un projet produit de l'expérience. L'expérience nourrit de nouvelles idées. Les connaissances se renforcent par leurs interactions plutôt que par leur accumulation.
-
-L'objectif d'Octopus est de favoriser des cycles vertueux où les intentions mûrissent, les réalisations produisent de nouveaux apprentissages et chaque contribution augmente durablement la valeur de l'écosystème.
-
-Le Core définit les mécanismes qui rendent ces cycles possibles. Les Adapters les expriment selon leur propre langage, leur domaine et leur culture.
-
----
-
-## Statut
-
-Draft v1.0 épuré.
-
-Objectif : définir le Core d'Octopus sans métaphore, sans lore et sans dépendance à Blacklace.
-
-## Vision
-
-Octopus est un moteur d'orchestration d'intentions.
-
-Il reçoit une intention exprimée en langage naturel, la transforme en actions structurées, orchestre les capacités nécessaires, conserve les décisions importantes et protège la cohérence du système.
-
-Octopus doit réduire la charge mentale de l'utilisateur sans masquer les décisions sensibles.
-
-## Principe fondateur
-
-Le Core est universel.
-
-Les Adapters fournissent le vocabulaire, les personas, les métaphores et l'expérience propre à chaque contexte.
-
-Le Core ne contient aucun élément narratif.
-
-## Concepts du Core
-
-### Intent
-
-Expression initiale d'un objectif utilisateur.
-
-Une intention décrit un résultat attendu, pas une procédure.
-
-### Knowledge Garden
-
-Espace d'incubation des idées, hypothèses, opportunités et pistes non encore matérialisées.
-
-Il ne développe pas, ne publie pas et ne déclenche pas d'action sensible.
-
-### Resonance
-
-Mécanisme d'évaluation de la maturité d'une intention ou d'une idée.
-
-La résonance peut inclure : cohérence avec l'écosystème, utilité, faisabilité, persistance dans le temps et convergence de critiques indépendantes.
-
-### Harvest
-
-Frontière unique entre incubation et exécution.
-
-Une idée ne devient projet qu'au moment de sa récolte.
-
-La récolte fige une intention en spécification exploitable par le Runtime.
-
-### Runtime
-
-Couche d'exécution technique.
-
-Elle reçoit des spécifications, orchestre des workflows, appelle des capacités, journalise les traces et produit des livrables.
-
-### Capabilities
-
-Actions réutilisables exposées au Runtime : lire, écrire, générer, publier, rechercher, analyser, transformer.
-
-Les capacités peuvent être fournies par plusieurs connecteurs.
-
-### Policies
-
-Règles configurables qui limitent ou autorisent certaines actions : budget, sécurité, validation humaine, nombre de projets actifs, permissions.
-
-Les seuils opérationnels vivent dans les Policies, pas dans la Constitution.
-
-### Memory
-
-Mécanisme de conservation contextualisée.
-
-La mémoire est cloisonnée par application, client ou adapter.
-
-Toute passerelle mémoire doit être explicite.
-
-### Guardian
-
-Système de protection.
-
-Il observe, alerte, limite, isole, suspend ou bloque selon les policies et le niveau de risque.
-
-Guardian protège le système mais ne décide pas du métier.
-
-### Adapter
-
-Couche de personnalisation.
-
-Un Adapter traduit les concepts du Core vers le vocabulaire, les personas, les interfaces et les usages d'un contexte donné.
-
-## Lois du Core
-
-### Loi 1 — Core sans métaphore
-
-Le Core ne contient aucune métaphore, aucun personnage et aucun élément narratif.
-
-Les métaphores appartiennent aux Adapters.
-
-### Loi 2 — Intention avant procédure
-
-L'utilisateur exprime un objectif.
-
-Octopus déduit les étapes nécessaires, puis demande validation quand l'action est sensible.
-
-### Loi 3 — Incubation séparée de l'exécution
-
-Le Knowledge Garden incube.
-
-Le Runtime exécute.
-
-Aucune idée n'entre directement en exécution sans Harvest.
-
-### Loi 4 — Récolte
-
-Une idée ne devient jamais projet parce qu'elle est née.
-
-Elle devient projet lorsqu'elle est récoltée.
-
-La récolte produit une spécification figée.
-
-Toute évolution ultérieure devient une nouvelle intention ou une nouvelle graine dans le Knowledge Garden.
-
-### Loi 5 — Capacité limitée
-
-Octopus ne matérialise pas toutes les idées mûres immédiatement.
-
-Les Policies limitent le nombre d'exécutions simultanées afin de préserver la capacité de terminer.
-
-### Loi 6 — Séparation des responsabilités
+L'Event Bus sert à l'audit, la télémétrie, les notifications, le découplage, les événements internes et les effets secondaires.
 
 Les modules ne s'appellent pas directement.
 
-Les capacités ne décident pas.
+## Lois non négociables
 
-Les connecteurs ne décident pas.
+1. **Intention avant procédure.** L'humain exprime un objectif ; le système choisit la procédure appropriée.
+2. **Composition avant héritage.** Les applications composent Octopus Engine sans injecter de logique métier dans le Core.
+3. **Coordinateur maigre.** Le Coordinator interprète des contrats déclaratifs ; il ne contient aucune logique propre à une application.
+4. **Conductor séparé.** Le Conductor parle aux humains ; le Coordinator parle aux machines.
+5. **Modules indépendants.** Un module reçoit uniquement sa tâche locale et ignore les autres modules.
+6. **Événements plutôt qu'appels directs.** Les échanges inter-modules passent par des événements et contrats traçables.
+7. **Capabilities séparées des connecteurs.** Un connecteur expose un accès technique ; une capability expose une action utilisable.
+8. **Guardian protège sans gouverner.** Il peut observer, limiter, isoler, suspendre ou bloquer, mais ne décide jamais du métier.
+9. **Mémoire cloisonnée.** Toute circulation entre mémoires est explicite, documentée et autorisée.
+10. **Traçabilité.** Toute décision, exécution, source, coût, erreur et résultat important doit pouvoir être inspecté.
+11. **Réversibilité.** Une expérimentation, un greffon ou une capability temporaire peut être retiré sans casser le moteur.
+12. **Sobriété.** Le système réduit la charge mentale et n'expose pas sa complexité sans nécessité.
+13. **Documentation avant extension.** Toute nouvelle responsabilité durable est documentée avant d'entrer dans le Core.
+14. **Validation proportionnée au risque.** Observation, jeu, rêve et préparation peuvent être autonomes ; toute action sensible exige une autorisation adaptée.
+15. **Autonomie intérieure.** Le Poulpe n'attend pas une requête humaine pour observer, comparer, se souvenir, jouer, rêver, faire mûrir une curiosité ou préparer une proposition.
+16. **Aucune autonomie de façade.** Ouvrir Publisher, afficher le Garden ou parler au Poulpe ne déclenche pas sa vie intérieure.
+17. **Le LLM n'est pas le cerveau.** Un modèle peut enrichir, raconter ou reformuler ; il ne décide pas de ce qui intrigue le Poulpe, de ce qu'il apprend ni de ce qui devient une Seed.
+18. **Retour au Garden.** Toute exploration produit une trace visible ou mémorisable : Harvest, apprentissage, curiosité, carnet, échec explicite ou abandon justifié.
+19. **Conseil de Résonance.** Une loi fondamentale du Core ne peut être ajoutée ou modifiée qu'après revue critique par plusieurs intelligences ou experts indépendants.
 
-Le Runtime orchestre, les Policies contraignent, Guardian protège.
+## Architecture minimale
 
-### Loi 7 — Mémoire cloisonnée
+Application → Adapter → Octopus Engine → Coordinator → Workflow → Module Tasks → Capabilities → Connecteurs → Sources externes
 
-Aucune mémoire commune ouverte n'existe par défaut.
+Guardian applique les policies autour de l'exécution. Les événements, traces et mémoires assurent découplage, audit et apprentissage.
 
-Chaque contexte possède son espace mémoire.
+## Contrats du Core
 
-Les passerelles doivent être documentées et validées.
+Le Core définit au minimum :
 
-### Loi 8 — Conseil de Résonance
+- Intent
+- Mission
+- Workflow
+- Module Task
+- Capability
+- Connector
+- Policy
+- Event
+- Trace
+- Memory Boundary
+- Adapter
+- Graft
 
-Une loi fondamentale du Core ne peut être ajoutée ou modifiée qu'après revue critique par plusieurs intelligences ou experts indépendants.
+Le Core ne contient aucune connaissance de SaaS, Blacklace, publication, jeu ou prospection.
 
-Le but n'est pas l'unanimité, mais l'identification des invariants qui résistent aux critiques.
+## Autonomie et rythme
 
-### Loi 9 — Adapters non intrusifs
+L'autonomie du Poulpe repose sur des boucles locales et persistantes :
 
-Un Adapter peut modifier le langage, les personas, les interfaces et les policies d'un contexte.
+- ingestion régulière de sources autorisées ;
+- radar de signaux nouveaux ;
+- comparaison avec observations et souvenirs ;
+- évolution graduelle de la curiosité ;
+- jeu, rêve ou simulation sans conséquence réelle ;
+- préparation de Seeds, Harvests ou aventures ;
+- présentation au jardinier lorsque quelque chose mérite son attention.
 
-Il ne modifie pas le Core.
+Ces boucles fonctionnent indépendamment de l'ouverture d'une interface. Une interface révèle l'activité ; elle ne la crée pas.
 
-### Loi 10 — Tests des invariants
+## Actions sensibles
 
-Toute loi du Core doit pouvoir être vérifiée par revue, test, audit ou policy.
+Sont notamment sensibles : publication publique, prise de contact, dépense significative, modification ou suppression de données, déploiement, engagement juridique ou commercial, accès à une nouvelle source privée.
 
-Une loi non vérifiable doit rester dans un ADR ou un Adapter.
+Ces actions passent par Guardian et une validation proportionnée au risque. La curiosité n'est jamais une permission.
 
-## Frontières
+## Greffons et évolution
 
-### Core → Adapter
+Un greffon est une capability temporaire composée pour une mission. Il n'est pas une tentacule permanente par défaut.
 
-Le Core expose des concepts neutres.
+Un greffon devient durable uniquement s'il revient utilement, produit des résultats mesurables, respecte les frontières du Core, possède un contrat, des tests et une politique de retrait, puis est promu par une décision explicite.
 
-L'Adapter fournit le langage naturel, les personas et les conventions d'usage.
+## Sources de vérité
 
-### Knowledge Garden → Runtime
+- **GitHub Octopus Engine** : source technique durable du runtime et des contrats.
+- **Constitution Notion** : synthèse vivante des invariants.
+- **ADR** : décisions détaillées et raisons de leur adoption.
+- **`constitutions/`** : comportements propres aux applications et adapters.
 
-Le passage se fait uniquement par Harvest.
+En cas de contradiction, la décision la plus récente explicitement acceptée prévaut, puis doit être répercutée dans les autres sources.
 
-Harvest produit une spécification stable.
+## Ce qu'Octopus Engine n'est pas
 
-### Runtime → Knowledge Garden
+Octopus Engine n'est pas : Gérard, une IA omnisciente, un gros prompt central, une collection d'agents se parlant librement, un CRM, un tableau de bord, un fournisseur de personnalité, le propriétaire des connaissances métier ou le déclencheur de la curiosité du Poulpe.
 
-Les retours, erreurs, apprentissages et idées issues de l'exécution redeviennent de nouvelles entrées d'incubation.
+## Constitutions liées
 
-Ils ne modifient jamais rétroactivement une récolte déjà figée.
+- `constitutions/publisher.md`
+- `constitutions/poulpe-fiction.md`
+- `constitutions/garden.md`
+- `constitutions/blacklace.md`
+- `constitutions/gerard-ethology.md`
 
-## Ce qui sort du Core
+## Maxime
 
-Tout nom propre, personnage, lieu, symbole ou lore appartient à un Adapter ou au Codex de son univers.
-
-Exemples à exclure du Core : Blacklace, Feuch, Brumeux, Fée Belette, Natasha, SATOR, Natashain, lieux ou personnages narratifs.
-
-## Règle d'évolution
-
-Toute proposition visant à enrichir le Core doit démontrer qu'elle ne peut pas être implémentée comme Adapter, Policy ou Capability.
-
-À défaut, elle est refusée du Core.
-
-## Knowledge Garden — Parcelles
-
-Le Knowledge Garden est organisé en parcelles.
-
-Une parcelle représente un domaine, un projet, un client, un produit ou un univers.
-
-Chaque parcelle suit le même cycle :
-
-Intent → Graines → Resonance → Harvest → Runtime
-
-Une intention peut produire plusieurs graines.
-
-Les graines mûrissent indépendamment. Elles peuvent entrer en résonance avec d'autres parcelles lorsqu'une connexion apporte une valeur réelle.
-
-Les parcelles sont organisées mais non cloisonnées. Elles préservent leur contexte tout en autorisant les échanges entre domaines.
-
-Le Core définit le fonctionnement général du Knowledge Garden. Il ne définit pas l'organisation interne des parcelles.
-
-Chaque Adapter ou application structure librement son propre jardin.
+**Le Poulpe vit, Publisher observe, le Garden montre, Poulpe Fiction imagine, Octopus Engine orchestre et Guardian protège.**
