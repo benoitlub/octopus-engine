@@ -2,140 +2,99 @@
 
 Références : Constitution Core, Constitution Publisher, Constitution Gérard.
 
+## Nature
+
 Le Garden conserve et montre.
 
-Le Garden est le territoire de travail.
+Il est le territoire de travail et le **hublot visible** sur les parcelles, curiosités, cultures, récoltes et activités du Poulpe.
 
-Une parcelle est un espace client/projet/domaine dans le Garden.
-
-Le Garden n'est pas un organe du Poulpe : c'est son territoire d'action.
-
-Le Garden est un READ MODEL.
-
-Il est alimenté par des événements.
+Le Garden est un **read model** alimenté par des événements.
 
 Il n'est jamais la source d'autorité.
 
-Le Garden montre.
+Le Garden :
 
-Il ne décide jamais.
+- montre ;
+- conserve des projections ;
+- permet d'envoyer des commandes ;
+- n'invente pas l'activité ;
+- ne décide pas ;
+- ne pilote pas ;
+- ne possède pas les règles métier.
 
-Il ne pilote jamais.
+Une interface révèle l'activité déjà produite. L'ouverture du Garden ne déclenche ni Radar, ni Observatoire, ni curiosité, ni croissance.
 
-Il ne possède jamais les règles métier.
+## Parcelles
 
-## Cycle
+Une parcelle représente un projet, un client, un domaine, un produit ou un univers.
 
-Seeds/WIP/Harvest = cycle de culture.
+Les parcelles préservent leur contexte tout en autorisant des résonances explicites entre domaines.
 
-Une Seed ne pousse PAS toute seule.
+## Cycle de culture
 
-La croissance appartient au Poulpe.
+Seeds → WIP → Harvest représente le cycle visible de culture.
 
-Le Garden ne fait que conserver son évolution.
+Une Seed ne pousse pas parce qu'elle est affichée.
 
-Publisher nourrit parfois une Seed avec de nouvelles observations.
+La croissance appartient au Poulpe. Publisher peut nourrir une Seed avec de nouvelles observations. Guardian protège le passage vers les actions sensibles.
 
-Guardian protège sa croissance.
-
-Le jardinier influence l'écosystème.
-
-Le Garden ne possède jamais la croissance.
+Le Garden conserve et montre cette évolution sans la posséder.
 
 ## GardenProjector
 
-GardenProjector
+Flux canonique :
 
-dont le rôle est :
-
-Events
-    ↓
-Projection
-    ↓
-Garden
+Events → GardenProjector → Garden
 
 Le Garden ne modifie jamais directement :
 
-- CapabilityRegistry
-- Guardian
-- Runtime
-- Publisher
-- Poulpe
+- CapabilityRegistry ;
+- Guardian ;
+- Runtime ;
+- Publisher ;
+- le Poulpe.
 
-## Vue sur jardin
+## Commandes
 
-Vue sur jardin
-
-Cette interface permet :
-
-Observer
-
-et
-
-Envoyer des commandes.
+Les actions de l'interface envoient des commandes aux organes responsables.
 
 Exemple :
 
-Modifier seuil curiosité
-↓
+Modifier un seuil de curiosité → commande → Poulpe → événement → GardenProjector → Garden
 
-commande
-
-↓
-
-Poulpe
-
-↓
-
-événement
-
-↓
-
-GardenProjector
-
-↓
-
-Garden
-
-Même principe pour Publisher, Guardian et Octopus.
-
-Les boutons envoient des COMMANDES.
-
-Ils ne modifient jamais directement les organes.
+Les boutons ne modifient jamais directement les organes ou les projections.
 
 ## Capability Registry
 
-Le registre vivant des capabilities n'appartient PAS au Garden.
+Le registre vivant des capabilities n'appartient pas au Garden.
 
-Le Garden peut en afficher une projection.
-
-L'autorité reste dans le Core.
+Le Garden peut en afficher une projection. L'autorité reste dans le Core.
 
 ## Guardian
 
-Guardian décide.
+Guardian protège, limite ou bloque selon les policies et le niveau de risque. Il ne décide jamais du métier.
 
-Garden affiche.
+Le Garden affiche ses décisions et leurs traces.
 
-Ne jamais faire :
+Flux attendu :
 
-GardenStore
-↓
+Guardian → CapabilityRegistry / Runtime → Event Bus → GardenProjector → Garden
 
-isole une capability
+Jamais :
 
-Mais :
+GardenStore → modification directe de Guardian ou d'une capability
 
-Guardian
-↓
+## Retour des explorations
 
-CapabilityRegistry
-↓
+Toute exploration doit pouvoir revenir au Garden sous une forme visible ou mémorisable :
 
-EventBus
-↓
+- Harvest ;
+- apprentissage ;
+- curiosité ;
+- note de carnet ;
+- échec explicite ;
+- abandon justifié.
 
-GardenProjector
-↓
+## Formule
 
-Garden
+**Le Garden montre la vie du Poulpe ; il ne la crée pas.**
