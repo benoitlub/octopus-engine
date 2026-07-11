@@ -1,4 +1,5 @@
 import type { EventBus, OctopusEvent, OctopusEventType } from "./event-bus.js";
+import type { SeedRecord, SproutRecord } from "./garden-domain.js";
 import type { GardenStore, HarvestRecord, MissionRecord, ResourceUsageRecord } from "./garden-store.js";
 import type { ResourceUsage } from "./resource-manager.js";
 
@@ -14,6 +15,9 @@ const PROJECTED_EVENTS: OctopusEventType[] = [
   "MissionCompleted",
   "MissionFailed",
   "ParcelUpdated",
+  "SeedPlanted",
+  "SeedUpdated",
+  "SproutCreated",
   "HarvestCreated",
   "TentacleLearned",
 ];
@@ -30,6 +34,16 @@ function recordValue(payload: Record<string, unknown>, key: string): Record<stri
 
 function usageValue(payload: Record<string, unknown>): ResourceUsage | undefined {
   return recordValue(payload, "usage") as ResourceUsage | undefined;
+}
+
+function seedValue(payload: Record<string, unknown>): SeedRecord | undefined {
+  const seed = recordValue(payload, "seed") as SeedRecord | undefined;
+  return seed && typeof seed.id === "string" && typeof seed.parcelId === "string" ? seed : undefined;
+}
+
+function sproutValue(payload: Record<string, unknown>): SproutRecord | undefined {
+  const sprout = recordValue(payload, "sprout") as SproutRecord | undefined;
+  return sprout && typeof sprout.id === "string" && typeof sprout.seedId === "string" ? sprout : undefined;
 }
 
 export class GardenProjector {
@@ -61,6 +75,10 @@ export class GardenProjector {
       this.updateMission(event, "failed");
     } else if (event.type === "ResourceUsed") {
       this.projectResourceUsage(event);
+    } else if (event.type === "SeedPlanted" || event.type === "SeedUpdated") {
+      this.projectSeed(event);
+    } else if (event.type === "SproutCreated") {
+      this.projectSprout(event);
     } else if (event.type === "HarvestCreated") {
       this.projectHarvest(event);
     }
@@ -115,6 +133,27 @@ export class GardenProjector {
       ...(usage ? { usage } : {}),
     };
     this.garden.addResourceUsage(record);
+  }
+
+  private projectSeed(event: OctopusEvent): void {
+    const seed = seedValue(event.payload);
+    if (!seed) return;
+
+    const existing = this.garden.getState().seeds.some((candidate) => candidate.id === seed.id);
+    if (existing) {
+      this.garden.updateSeed(seed.id, seed);
+      return;
+    }
+
+    this.garden.plantSeed(seed);
+  }
+
+  private projectSprout(event: OctopusEvent): void {
+    const sprout = sproutValue(event.payload);
+    if (!sprout) return;
+
+    const exists = this.garden.getState().sprouts.some((candidate) => candidate.id === sprout.id);
+    if (!exists) this.garden.addSprout(sprout);
   }
 
   private projectHarvest(event: OctopusEvent): void {
