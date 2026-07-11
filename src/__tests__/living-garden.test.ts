@@ -53,7 +53,7 @@ describe("living Garden", () => {
     expect(() => store.plantSeed(makeSeed({ id: "seed-2", parcelId: "missing" }))).toThrow("Unknown parcel");
   });
 
-  it("isolates an experimental capability after a blocking evaluation", () => {
+  it("records a blocking evaluation without mutating projected capability stability", () => {
     const store = new GardenStore();
     store.upsertCapability({
       id: "experimental-composer",
@@ -79,6 +79,9 @@ describe("living Garden", () => {
       findings: [{ code: "policy", severity: "critical", message: "Violation de policy" }],
     });
 
-    expect(store.getState().capabilities[0]?.stability).toBe("isolated");
+    const state = store.getState();
+    expect(state.evaluations).toHaveLength(1);
+    expect(state.evaluations[0]?.reaction).toBe("block");
+    expect(state.capabilities[0]?.stability).toBe("experimental");
   });
 });

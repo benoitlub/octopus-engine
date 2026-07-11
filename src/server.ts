@@ -66,7 +66,6 @@ app.post("/mission", async (c) => {
     updatedAt: new Date().toISOString(),
   });
   await engine.events.emit("MissionStarted", { missionId, parcelId: parcel.id, title });
-  await engine.events.emit("TentacleSelected", { missionId, tentacleId: "marketing" });
   await engine.events.emit("ResourceRequested", { missionId, resourceId: "mistral", authorized: authorizedResources.includes("mistral") });
 
   const mission = await engine.runtime.run({
@@ -79,6 +78,10 @@ app.post("/mission", async (c) => {
     prompt: typeof body.prompt === "string" ? body.prompt : undefined,
     authorizedResources,
   });
+
+  if (mission.tentacleId) {
+    await engine.events.emit("TentacleSelected", { missionId, tentacleId: mission.tentacleId });
+  }
 
   engine.garden.updateMission(missionId, { status: mission.status, output: mission.output });
 

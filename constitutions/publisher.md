@@ -2,7 +2,7 @@
 
 Références : Constitution Core, Constitution Garden, Constitution Gérard.
 
-Publisher Studio est le Knowledge Observatory d'Octopus Engine.
+Publisher Studio est une application d’observation utilisant Octopus Engine.
 
 Publisher devient :
 
@@ -39,7 +39,7 @@ Publisher AI n'est pas une parcelle.
 
 Publisher AI est l'interface métier côté client.
 
-Octopus est le moteur/orchestrateur invisible.
+Octopus Engine est le moteur d’orchestration invisible.
 
 Le Knowledge Garden est le territoire de travail.
 
@@ -92,7 +92,7 @@ Réutilise autant que possible :
 
 Une analyse terminée peut devenir un Harvest.
 
-Une connaissance validée peut devenir un Seed.
+Une connaissance validée peut être proposée au Poulpe comme nourriture, contexte ou candidate Seed.
 
 Un rapport peut devenir un Knowledge Report.
 

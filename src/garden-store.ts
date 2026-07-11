@@ -161,13 +161,6 @@ export class GardenStore {
 
   addEvaluation(evaluation: EvaluationRecord): void {
     this.state.evaluations.push(evaluation);
-    if (!evaluation.capabilityId) return;
-    const capability = this.state.capabilities.find((item) => item.id === evaluation.capabilityId);
-    if (!capability) return;
-    if (evaluation.reaction === "isolate" || evaluation.reaction === "suspend" || evaluation.reaction === "block") {
-      capability.stability = "isolated";
-      capability.updatedAt = evaluation.createdAt;
-    }
   }
 }
 
