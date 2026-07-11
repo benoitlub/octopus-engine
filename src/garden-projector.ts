@@ -1,5 +1,6 @@
 import type { EventBus, OctopusEvent, OctopusEventType } from "./event-bus.js";
 import type { GardenStore, HarvestRecord, MissionRecord, ResourceUsageRecord } from "./garden-store.js";
+import type { ResourceUsage } from "./resource-manager.js";
 
 const PROJECTED_EVENTS: OctopusEventType[] = [
   "OctopusStarted",
@@ -27,6 +28,10 @@ function recordValue(payload: Record<string, unknown>, key: string): Record<stri
   return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : undefined;
 }
 
+function usageValue(payload: Record<string, unknown>): ResourceUsage | undefined {
+  return recordValue(payload, "usage") as ResourceUsage | undefined;
+}
+
 export class GardenProjector {
   private connected = false;
 
@@ -48,30 +53,15 @@ export class GardenProjector {
 
     if (event.type === "MissionQueued" || event.type === "MissionStarted") {
       this.projectMission(event);
-      return;
-    }
-
-    if (event.type === "AuthorizationRequested") {
+    } else if (event.type === "AuthorizationRequested") {
       this.updateMission(event, "waiting-authorization");
-      return;
-    }
-
-    if (event.type === "MissionCompleted") {
+    } else if (event.type === "MissionCompleted") {
       this.updateMission(event, "completed");
-      return;
-    }
-
-    if (event.type === "MissionFailed") {
+    } else if (event.type === "MissionFailed") {
       this.updateMission(event, "failed");
-      return;
-    }
-
-    if (event.type === "ResourceUsed") {
+    } else if (event.type === "ResourceUsed") {
       this.projectResourceUsage(event);
-      return;
-    }
-
-    if (event.type === "HarvestCreated") {
+    } else if (event.type === "HarvestCreated") {
       this.projectHarvest(event);
     }
   }
@@ -86,7 +76,7 @@ export class GardenProjector {
     const output = recordValue(event.payload, "output");
 
     if (existing) {
-      this.garden.updateMission(missionId, { status, output });
+      this.garden.updateMission(missionId, output ? { status, output } : { status });
       return;
     }
 
@@ -97,17 +87,15 @@ export class GardenProjector {
       status,
       createdAt: stringValue(event.payload, "createdAt") ?? event.timestamp,
       updatedAt: event.timestamp,
-      output,
+      ...(output ? { output } : {}),
     });
   }
 
   private updateMission(event: OctopusEvent, status: MissionRecord["status"]): void {
     const missionId = stringValue(event.payload, "missionId");
     if (!missionId) return;
-    this.garden.updateMission(missionId, {
-      status,
-      output: recordValue(event.payload, "output"),
-    });
+    const output = recordValue(event.payload, "output");
+    this.garden.updateMission(missionId, output ? { status, output } : { status });
   }
 
   private projectResourceUsage(event: OctopusEvent): void {
@@ -116,6 +104,7 @@ export class GardenProjector {
     const resourceId = stringValue(event.payload, "resourceId");
     if (!missionId || !parcelId || !resourceId) return;
 
+    const usage = usageValue(event.payload);
     const record: ResourceUsageRecord = {
       id: stringValue(event.payload, "usageId") ?? `usage_${event.id}`,
       missionId,
@@ -123,7 +112,7 @@ export class GardenProjector {
       resourceId,
       status: stringValue(event.payload, "status") ?? "success",
       createdAt: event.timestamp,
-      usage: recordValue(event.payload, "usage"),
+      ...(usage ? { usage } : {}),
     };
     this.garden.addResourceUsage(record);
   }
@@ -133,14 +122,15 @@ export class GardenProjector {
     const parcelId = stringValue(event.payload, "parcelId");
     if (!missionId || !parcelId) return;
 
+    const seedId = stringValue(event.payload, "seedId");
     const record: HarvestRecord = {
       id: stringValue(event.payload, "harvestId") ?? `harvest_${event.id}`,
       missionId,
       parcelId,
-      seedId: stringValue(event.payload, "seedId"),
       title: stringValue(event.payload, "title") ?? missionId,
       createdAt: event.timestamp,
       preview: stringValue(event.payload, "preview") ?? "",
+      ...(seedId ? { seedId } : {}),
     };
     this.garden.addHarvest(record);
   }
