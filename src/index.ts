@@ -103,6 +103,8 @@ export type {
 
 export type { ResonanceThresholds, ResonanceResult } from "./resonance-engine.js";
 export { ResonanceEngine } from "./resonance-engine.js";
+export type { EvaluateSeedResonanceCommand } from "./seed-resonance-command.js";
+export { SeedResonanceCommandHandler } from "./seed-resonance-command.js";
 
 export type {
   MissionRecord,
