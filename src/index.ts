@@ -111,6 +111,7 @@ export type {
   GardenState,
 } from "./garden-store.js";
 export { GardenStore, createDemoGardenStore } from "./garden-store.js";
+export { GardenProjector } from "./garden-projector.js";
 
 export type { OctopusStartResult } from "./octopus.js";
 export { OctopusEngine } from "./octopus.js";

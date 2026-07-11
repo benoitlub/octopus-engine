@@ -57,16 +57,18 @@ app.post("/mission", async (c) => {
 
   const missionId = `mission_${Date.now()}`;
   const title = typeof body.title === "string" ? body.title : `Prepare a useful campaign for ${parcel.name}`;
-  engine.garden.addMission({
-    id: missionId,
+  await engine.events.emit("MissionStarted", {
+    missionId,
     parcelId: parcel.id,
     title,
-    status: "running",
     createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
   });
-  await engine.events.emit("MissionStarted", { missionId, parcelId: parcel.id, title });
-  await engine.events.emit("ResourceRequested", { missionId, resourceId: "mistral", authorized: authorizedResources.includes("mistral") });
+  await engine.events.emit("ResourceRequested", {
+    missionId,
+    parcelId: parcel.id,
+    resourceId: "mistral",
+    authorized: authorizedResources.includes("mistral"),
+  });
 
   const mission = await engine.runtime.run({
     id: missionId,
@@ -80,40 +82,51 @@ app.post("/mission", async (c) => {
   });
 
   if (mission.tentacleId) {
-    await engine.events.emit("TentacleSelected", { missionId, tentacleId: mission.tentacleId });
+    await engine.events.emit("TentacleSelected", {
+      missionId,
+      parcelId: parcel.id,
+      tentacleId: mission.tentacleId,
+    });
   }
 
-  engine.garden.updateMission(missionId, { status: mission.status, output: mission.output });
-
   if (mission.status === "waiting-authorization") {
-    await engine.events.emit("AuthorizationRequested", { missionId, parcelId: parcel.id, resourceId: mission.resourceResult?.resourceId ?? "mistral" });
+    await engine.events.emit("AuthorizationRequested", {
+      missionId,
+      parcelId: parcel.id,
+      resourceId: mission.resourceResult?.resourceId ?? "mistral",
+      output: mission.output,
+    });
   } else if (mission.status === "completed") {
     if (mission.resourceResult) {
-      const usage = mission.resourceResult.usage;
-      engine.garden.addResourceUsage({
-        id: `usage_${Date.now()}`,
+      await engine.events.emit("ResourceUsed", {
+        usageId: `usage_${Date.now()}`,
         missionId,
         parcelId: parcel.id,
         resourceId: mission.resourceResult.resourceId,
         status: mission.resourceResult.status,
-        createdAt: new Date().toISOString(),
-        usage,
+        usage: mission.resourceResult.usage,
       });
-      await engine.events.emit("ResourceUsed", { missionId, parcelId: parcel.id, resourceId: mission.resourceResult.resourceId, usage });
     }
     const text = typeof mission.output.text === "string" ? mission.output.text : JSON.stringify(mission.output);
-    engine.garden.addHarvest({
-      id: `harvest_${Date.now()}`,
+    await engine.events.emit("HarvestCreated", {
+      harvestId: `harvest_${Date.now()}`,
       missionId,
       parcelId: parcel.id,
       title,
-      createdAt: new Date().toISOString(),
       preview: text.slice(0, 280),
     });
-    await engine.events.emit("HarvestCreated", { missionId, parcelId: parcel.id, title });
-    await engine.events.emit("MissionCompleted", { missionId, parcelId: parcel.id });
+    await engine.events.emit("MissionCompleted", {
+      missionId,
+      parcelId: parcel.id,
+      output: mission.output,
+    });
   } else {
-    await engine.events.emit("MissionFailed", { missionId, parcelId: parcel.id, reason: mission.summary });
+    await engine.events.emit("MissionFailed", {
+      missionId,
+      parcelId: parcel.id,
+      reason: mission.summary,
+      output: mission.output,
+    });
   }
 
   return c.json(mission);
