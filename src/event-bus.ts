@@ -10,6 +10,9 @@ export type OctopusEventType =
   | "MissionCompleted"
   | "MissionFailed"
   | "ParcelUpdated"
+  | "SeedPlanted"
+  | "SeedUpdated"
+  | "SproutCreated"
   | "HarvestCreated"
   | "TentacleLearned";
 
