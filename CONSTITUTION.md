@@ -2,7 +2,7 @@
 
 ## Statut
 
-Version 2.0 — Constitution active, alignée avec la Constitution vivante Notion du 10 juillet 2026.
+Version 2.0 — Constitution active, alignée avec la Constitution vivante Notion du 10 juillet 2026 et clarifiée par ADR-0008.
 
 Ce document contient les lois et invariants d'Octopus Core. Les comportements propres à Publisher, Garden, Poulpe Fiction, Gérard ou Blacklace vivent dans `constitutions/` et les décisions détaillées dans `ADR/`.
 
@@ -18,10 +18,12 @@ Le Poulpe vivant utilise Octopus Engine pour agir, mais ne se confond jamais ave
 
 - **Octopus Engine** : moteur neutre, planification, orchestration, policies, exécution et traces.
 - **Le Poulpe** : intelligence vivante, curiosité, mémoire de croissance, jeu, rêve, apprentissage et choix d'exploration.
-- **Publisher** : serre d'observation et Knowledge Observatory ; collecte, compare, mémorise et produit des Knowledge Packs.
-- **Garden** : read model et hublot visible sur les parcelles, curiosités, cultures, récoltes et activités.
-- **Poulpe Fiction** : cabane de départ ; conversation, préparation des sacs, simulation, jeu et préparation des aventures.
+- **Publisher** : serre d'observation, Knowledge Observatory, curateur d'outils, providers et connexions ; son espace d'infrastructure est le Local technique.
+- **Poulpe Fiction** : application relationnelle du Poulpe ; elle réunit la cabane de départ et le Garden visible sans confondre leurs responsabilités.
+- **Garden** : composant métier et visuel de Poulpe Fiction ; read model et hublot visible sur les parcelles, curiosités, cultures, récoltes et activités.
 - **Applications** : adapters, ressources, connaissances et greffons ; elles ne modifient jamais le Core.
+
+Octopus Engine ne possède ni Garden, ni parcelle, ni Seed, ni Sprout. Ces concepts peuvent être transmis uniquement comme contexte opaque ou identifiants de corrélation par une application.
 
 ## Clarification Event Bus
 
@@ -76,7 +78,7 @@ Le Core définit au minimum :
 - Adapter
 - Graft
 
-Le Core ne contient aucune connaissance de SaaS, Blacklace, publication, jeu ou prospection.
+Le Core ne contient aucune connaissance de SaaS, Blacklace, publication, jeu, prospection, Garden, parcelle, Seed ou Sprout.
 
 ## Autonomie et rythme
 
@@ -115,7 +117,7 @@ En cas de contradiction, la décision la plus récente explicitement acceptée p
 
 ## Ce qu'Octopus Engine n'est pas
 
-Octopus Engine n'est pas : Gérard, une IA omnisciente, un gros prompt central, une collection d'agents se parlant librement, un CRM, un tableau de bord, un fournisseur de personnalité, le propriétaire des connaissances métier ou le déclencheur de la curiosité du Poulpe.
+Octopus Engine n'est pas : Gérard, une IA omnisciente, un gros prompt central, une collection d'agents se parlant librement, un CRM, un tableau de bord, un fournisseur de personnalité, le propriétaire des connaissances métier, le propriétaire du Garden ou le déclencheur de la curiosité du Poulpe.
 
 ## Constitutions liées
 
@@ -127,4 +129,4 @@ Octopus Engine n'est pas : Gérard, une IA omnisciente, un gros prompt central, 
 
 ## Maxime
 
-**Le Poulpe vit, Publisher observe, le Garden montre, Poulpe Fiction imagine, Octopus Engine orchestre et Guardian protège.**
+**Le Poulpe vit, Publisher observe et équipe, Poulpe Fiction prépare et montre, Octopus Engine orchestre, et Guardian protège.**
