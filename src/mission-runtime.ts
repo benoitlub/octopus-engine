@@ -1,3 +1,4 @@
+import type { ExecutionContext, ExecutionResult } from "./execution-contract.js";
 import type { ParcelSnapshot } from "./gardener.js";
 import type { TentacleRegistry, TentacleTheme } from "./tentacle.js";
 import type { ResourceManager, ResourceResult } from "./resource-manager.js";
@@ -8,31 +9,46 @@ export interface RuntimeMissionInput {
   id: string;
   title: string;
   objective: string;
-  parcel: ParcelSnapshot;
+  context?: ExecutionContext;
+  /** @deprecated Compatibility bridge while Garden ownership moves to Poulpe Fiction. */
+  parcel?: ParcelSnapshot;
   requiredCapabilities: string[];
   preferredTheme?: TentacleTheme;
   prompt?: string;
   authorizedResources?: string[];
 }
 
-export interface RuntimeMissionResult {
+export interface RuntimeMissionResult extends ExecutionResult {
   missionId: string;
   status: MissionStatus;
-  parcelId: string;
+  contextId: string;
+  /** @deprecated Compatibility alias for existing Garden clients. */
+  parcelId?: string;
   tentacleId?: string;
-  summary: string;
   resourceResult?: ResourceResult;
-  output: Record<string, unknown>;
 }
 
-function defaultPrompt(input: RuntimeMissionInput): string {
+function resolveContext(input: RuntimeMissionInput): ExecutionContext {
+  if (input.context) return input.context;
+  if (input.parcel) {
+    return {
+      id: input.parcel.id,
+      label: input.parcel.name,
+      objective: input.parcel.objective,
+      metadata: { legacySource: "parcel" },
+    };
+  }
+  return { id: "default", label: "Default execution context" };
+}
+
+function defaultPrompt(input: RuntimeMissionInput, context: ExecutionContext): string {
   return [
     `Mission: ${input.title}`,
     `Objective: ${input.objective}`,
-    `Parcel: ${input.parcel.name}`,
-    `Parcel objective: ${input.parcel.objective}`,
+    context.label ? `Context: ${context.label}` : "",
+    context.objective ? `Context objective: ${context.objective}` : "",
     "Return a concrete, useful action plan with a first mission output.",
-  ].join("\n");
+  ].filter(Boolean).join("\n");
 }
 
 export class MissionRuntime {
@@ -42,6 +58,8 @@ export class MissionRuntime {
   ) {}
 
   async run(input: RuntimeMissionInput): Promise<RuntimeMissionResult> {
+    const context = resolveContext(input);
+    const parcelId = input.parcel?.id;
     const selection = this.tentacles.select({
       requiredCapabilities: input.requiredCapabilities,
       preferredTheme: input.preferredTheme,
@@ -50,9 +68,11 @@ export class MissionRuntime {
 
     if (!selection.tentacle) {
       return {
+        operationId: input.id,
         missionId: input.id,
         status: "failed",
-        parcelId: input.parcel.id,
+        contextId: context.id,
+        parcelId,
         summary: selection.reason,
         output: {},
       };
@@ -64,10 +84,13 @@ export class MissionRuntime {
 
     if (!resource) {
       return {
+        operationId: input.id,
         missionId: input.id,
         status: "failed",
-        parcelId: input.parcel.id,
+        contextId: context.id,
+        parcelId,
         tentacleId: selection.tentacle.id,
+        executorId: selection.tentacle.id,
         summary: "Selected tentacle has no resource matching the required capabilities.",
         output: {},
       };
@@ -80,18 +103,21 @@ export class MissionRuntime {
       sensitive: resource.requiresAuthorization,
       authorizedResources: input.authorizedResources,
       input: {
-        system: "You are a resource used by Octopus Engine. Produce concise, actionable output in French when the prompt is French. Never expose internal garden mechanics to clients.",
-        prompt: input.prompt ?? defaultPrompt(input),
+        system: "You are a resource used by Octopus Engine. Produce concise, actionable output in French when the prompt is French. Do not expose internal runtime mechanics to clients.",
+        prompt: input.prompt ?? defaultPrompt(input, context),
       },
     });
 
     if (resourceResult.status === "authorization-required") {
       return {
+        operationId: input.id,
         missionId: input.id,
         status: "waiting-authorization",
-        parcelId: input.parcel.id,
+        contextId: context.id,
+        parcelId,
         tentacleId: selection.tentacle.id,
-        summary: resourceResult.message ?? "Gardener authorization required.",
+        executorId: selection.tentacle.id,
+        summary: resourceResult.message ?? "Human authorization required.",
         resourceResult,
         output: resourceResult.output,
       };
@@ -99,10 +125,13 @@ export class MissionRuntime {
 
     if (resourceResult.status === "error") {
       return {
+        operationId: input.id,
         missionId: input.id,
         status: "failed",
-        parcelId: input.parcel.id,
+        contextId: context.id,
+        parcelId,
         tentacleId: selection.tentacle.id,
+        executorId: selection.tentacle.id,
         summary: resourceResult.message ?? "Resource execution failed.",
         resourceResult,
         output: resourceResult.output,
@@ -110,10 +139,13 @@ export class MissionRuntime {
     }
 
     return {
+      operationId: input.id,
       missionId: input.id,
       status: "completed",
-      parcelId: input.parcel.id,
+      contextId: context.id,
+      parcelId,
       tentacleId: selection.tentacle.id,
+      executorId: selection.tentacle.id,
       summary: `Mission completed through ${selection.tentacle.name}.`,
       resourceResult,
       output: resourceResult.output,
