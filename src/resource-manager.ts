@@ -86,7 +86,7 @@ export class ResourceManager {
         resourceId: request.resourceId,
         status: "authorization-required",
         output: { policyReason: policy.reason },
-        message: "Gardener authorization required.",
+        message: "Human authorization required.",
       };
     }
 
