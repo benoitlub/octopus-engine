@@ -2,6 +2,7 @@ import type { ExecutionContext, ExecutionResult } from "./execution-contract.js"
 import type { ParcelSnapshot } from "./gardener.js";
 import type { TentacleRegistry, TentacleTheme } from "./tentacle.js";
 import type { ResourceManager, ResourceResult } from "./resource-manager.js";
+import type { ExecutionArtifact } from "./execution-contract.js";
 
 export type MissionStatus = "completed" | "waiting-authorization" | "failed";
 
@@ -49,6 +50,36 @@ function defaultPrompt(input: RuntimeMissionInput, context: ExecutionContext): s
     context.objective ? `Context objective: ${context.objective}` : "",
     "Return a concrete, useful action plan with a first mission output.",
   ].filter(Boolean).join("\n");
+}
+
+function expectedHarvests(context: ExecutionContext): string[] {
+  const value = context.metadata?.expectedHarvests;
+  return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
+}
+
+function outputText(output: Record<string, unknown>): string {
+  const value = output.text ?? output.content ?? output.result;
+  if (typeof value === "string") return value;
+  try { return JSON.stringify(output); } catch (_) { return ""; }
+}
+
+function structuredArtifacts(input: RuntimeMissionInput, context: ExecutionContext, output: Record<string, unknown>): ExecutionArtifact[] {
+  const requested = expectedHarvests(context);
+  if (!requested.includes("landing-page")) return [];
+  const text = outputText(output);
+  if (!text.trim()) return [];
+
+  return [{
+    id: `landing_${input.id}`,
+    kind: "landing-page",
+    title: context.metadata?.seedId === "terra" ? "Landing page TERRA" : input.title,
+    content: { text },
+    metadata: {
+      source: "octopus-runtime",
+      contextId: context.id,
+      operationId: input.id,
+    },
+  }];
 }
 
 export class MissionRuntime {
@@ -138,6 +169,7 @@ export class MissionRuntime {
       };
     }
 
+    const artifacts = structuredArtifacts(input, context, resourceResult.output);
     return {
       operationId: input.id,
       missionId: input.id,
@@ -149,6 +181,7 @@ export class MissionRuntime {
       summary: `Mission completed through ${selection.tentacle.name}.`,
       resourceResult,
       output: resourceResult.output,
+      ...(artifacts.length ? { artifacts } : {}),
     };
   }
 }

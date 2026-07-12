@@ -93,4 +93,34 @@ describe("MissionRuntime neutral execution contract", () => {
     expect(result.parcelId).toBe("parcel-1");
     expect(result.output.text).toContain("Context: Legacy parcel");
   });
+
+  it("exposes a structured landing-page artifact when requested by context metadata", async () => {
+    const runtime = makeRuntime();
+    const result = await runtime.run({
+      id: "terra-landing",
+      title: "Créer la landing page TERRA",
+      objective: "Produire un texte publiable",
+      context: {
+        id: "blacklace-ecosystem",
+        label: "Écosystème Blacklace",
+        metadata: {
+          owner: "poulpe-fiction",
+          seedId: "terra",
+          expectedHarvests: ["landing-page", "instagram-visual"],
+        },
+      },
+      requiredCapabilities: ["campaign.generate"],
+      preferredTheme: "marketing",
+      authorizedResources: ["mistral"],
+    });
+
+    expect(result.status).toBe("completed");
+    expect(result.artifacts).toHaveLength(1);
+    expect(result.artifacts?.[0]).toMatchObject({
+      id: "landing_terra-landing",
+      kind: "landing-page",
+      title: "Landing page TERRA",
+      content: { text: expect.stringContaining("Créer la landing page TERRA") },
+    });
+  });
 });
