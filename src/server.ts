@@ -2,6 +2,7 @@ import { serve } from "@hono/node-server";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { CreateSproutCommandHandler } from "./create-sprout-command.js";
+import { handleCreatureObservation, parseCreatureObservation } from "./creature-observation.js";
 import type { ExecutionContext } from "./execution-contract.js";
 import type { SeedRecord } from "./garden-domain.js";
 import { OctopusEngine } from "./octopus.js";
@@ -74,11 +75,13 @@ app.get("/", (c) =>
       "GET /garden-ui",
       "GET /resources",
       "POST /mission",
+      "POST /observations/creature-sync",
       "POST /seeds/resonance",
       "POST /seeds/sprout",
     ],
     contracts: {
       mission: "neutral-execution-v1",
+      creatureObservation: "creature-observation-v1",
       legacyGardenRoutes: "deprecated",
     },
   }),
@@ -98,6 +101,20 @@ app.get("/garden-ui", (c) => c.html(renderGardenerPage()));
 app.get("/gardener", (c) => c.html(renderGardenerPage()));
 app.get("/garden", (c) => c.json(engine.garden.getState()));
 app.get("/resources", async (c) => c.json(await engine.resources.inspect()));
+
+app.post("/observations/creature-sync", async (c) => {
+  const body: unknown = await c.req.json().catch(() => null);
+  const observation = parseCreatureObservation(body);
+  if (!observation) {
+    return c.json({
+      status: "failed",
+      message: "A valid CreatureObservationEvent is required.",
+    }, 400);
+  }
+
+  const response = await handleCreatureObservation(engine, observation);
+  return c.json(response);
+});
 
 app.post("/seeds/resonance", async (c) => {
   const body: Record<string, unknown> = await c.req.json<Record<string, unknown>>().catch(() => ({}));
