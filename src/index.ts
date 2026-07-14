@@ -95,6 +95,15 @@ export { MissionRuntime } from "./mission-runtime.js";
 export type { OctopusEventType, OctopusEvent, EventHandler } from "./event-bus.js";
 export { EventBus } from "./event-bus.js";
 
+export type {
+  AutonomousJobStatus,
+  AutonomousSignal,
+  AutonomousJob,
+  AutonomousRunResult,
+  AutonomousExecutor,
+} from "./autonomous-cycle.js";
+export { AutonomousCycle, isAutonomousSignal } from "./autonomous-cycle.js";
+
 /** @deprecated Garden domain belongs to Poulpe Fiction. */
 export type {
   SeedKind,
