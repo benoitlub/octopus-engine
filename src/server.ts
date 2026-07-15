@@ -27,6 +27,11 @@ function stringList(value: unknown): string[] {
   return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string" && Boolean(item.trim())) : [];
 }
 
+async function jsonRecord(c: { req: { json<T>(): Promise<T> } }): Promise<Record<string, unknown>> {
+  const value = await c.req.json<unknown>().catch(() => undefined);
+  return isRecord(value) ? value : {};
+}
+
 function executionContext(value: unknown): ExecutionContext | undefined {
   if (!isRecord(value) || typeof value.id !== "string" || !value.id.trim()) return undefined;
   return {
@@ -135,7 +140,7 @@ app.post("/adapters/register", async (c) => {
 });
 
 app.post("/adapters/unregister", async (c) => {
-  const body = await c.req.json<Record<string, unknown>>().catch(() => ({}));
+  const body = await jsonRecord(c);
   if (typeof body.id !== "string" || !body.id.trim()) return c.json({ status: "failed", message: "Adapter id is required." }, 400);
   const removed = adapters.unregister(body.id);
   if (removed) await engine.events.emit("AdapterUnregistered", { adapterId: body.id, removedAt: new Date().toISOString() });
@@ -143,13 +148,13 @@ app.post("/adapters/unregister", async (c) => {
 });
 
 app.post("/seeds/resonance", async (c) => {
-  const body = await c.req.json<Record<string, unknown>>().catch(() => ({}));
+  const body = await jsonRecord(c);
   if (!isSeedRecord(body.seed)) return c.json({ status: "failed", message: "A valid seed snapshot is required." }, 400);
   return c.json({ status: "evaluated", seedId: body.seed.id, result: await seedResonance.execute({ seed: body.seed, proposedCapabilities: stringList(body.proposedCapabilities) }) });
 });
 
 app.post("/seeds/sprout", async (c) => {
-  const body = await c.req.json<Record<string, unknown>>().catch(() => ({}));
+  const body = await jsonRecord(c);
   if (!isSeedRecord(body.seed)) return c.json({ status: "failed", message: "A valid seed snapshot is required." }, 400);
   if (body.decision !== "sprout") return c.json({ status: "failed", message: "An explicit sprout decision is required." }, 400);
   try {
@@ -161,7 +166,7 @@ app.post("/seeds/sprout", async (c) => {
 });
 
 app.post("/mission", async (c) => {
-  const body = await c.req.json<Record<string, unknown>>().catch(() => ({}));
+  const body = await jsonRecord(c);
   const context = executionContext(body.context);
   if (!context) return c.json({ status: "rejected", code: "CONTEXT_REQUIRED", summary: "A neutral execution context is required.", output: {} }, 400);
   const requiredCapabilities = stringList(body.requiredCapabilities);
