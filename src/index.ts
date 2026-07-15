@@ -48,6 +48,18 @@ export {
   listIntrinsicCapabilities,
 } from "./intrinsic-capabilities.js";
 
+export type {
+  MissionLifecycleState,
+  MissionLifecycleTransition,
+  MissionLifecycleSnapshot,
+} from "./mission-lifecycle.js";
+export {
+  MISSION_LIFECYCLE_STATES,
+  MissionLifecycle,
+  canTransitionMission,
+  isMissionLifecycleState,
+} from "./mission-lifecycle.js";
+
 /** @deprecated Garden belongs to Poulpe Fiction. Kept temporarily for compatibility. */
 export type {
   ParcelStatus,
