@@ -19,7 +19,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function stringList(value: unknown): string[] {
-  return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
+  return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string" && Boolean(item.trim())) : [];
 }
 
 function executionContext(value: unknown): ExecutionContext | undefined {
@@ -59,6 +59,7 @@ app.use("*", cors({ origin: "*", allowMethods: ["GET", "POST", "OPTIONS"], allow
 app.get("/", (c) => c.json({
   name: "octopus-engine",
   status: "alive",
+  mode: "neutral-core",
   routes: [
     "GET /health",
     "GET /brief",
@@ -70,9 +71,15 @@ app.get("/", (c) => c.json({
     "POST /seeds/sprout",
   ],
   contracts: { mission: "neutral-execution-v1", legacyGardenRoutes: "deprecated" },
+  defaults: { capabilities: [], tentacles: [], resources: [] },
 }));
 
-app.get("/health", async (c) => c.json({ status: "alive", resources: await engine.resources.inspect() }));
+app.get("/health", async (c) => c.json({
+  status: "alive",
+  mode: "neutral-core",
+  tentacles: engine.tentacles.list(),
+  resources: await engine.resources.inspect(),
+}));
 app.get("/brief", async (c) => {
   lastStart = await engine.start();
   return c.json({ brief: lastStart.brief, mission: lastStart.mission, resources: lastStart.resources });
@@ -113,6 +120,15 @@ app.post("/mission", async (c) => {
   const legacyParcel = context ? undefined : engine.garden.getState().parcels.find((item) => item.id === legacyParcelId) ?? engine.garden.getState().parcels[0];
   if (!context && !legacyParcel) return c.json({ status: "failed", message: "A neutral execution context is required. Legacy parcel fallback is unavailable." }, 400);
 
+  const requiredCapabilities = stringList(body.requiredCapabilities);
+  if (!requiredCapabilities.length) {
+    return c.json({
+      status: "failed",
+      code: "CAPABILITY_REQUIRED",
+      message: "At least one explicit required capability is required. Octopus Engine has no domain default.",
+    }, 400);
+  }
+
   const resolvedContext: ExecutionContext = context ?? {
     id: legacyParcel!.id,
     label: legacyParcel!.name,
@@ -122,12 +138,13 @@ app.post("/mission", async (c) => {
   const operationId = typeof body.operationId === "string" && body.operationId.trim() ? body.operationId : `mission_${Date.now()}`;
   const title = typeof body.title === "string" ? body.title : `Execute ${resolvedContext.label ?? resolvedContext.id}`;
   const objective = typeof body.objective === "string" ? body.objective : resolvedContext.objective ?? "Produce a useful execution result.";
-  const requiredCapabilities = stringList(body.requiredCapabilities);
   const authorizedResources = stringList(body.authorizedResources).length ? stringList(body.authorizedResources) : stringList(body.authorize);
   const eventIdentity = { missionId: operationId, operationId, contextId: resolvedContext.id, ...(legacyParcel ? { parcelId: legacyParcel.id } : {}) };
 
   await engine.events.emit("MissionStarted", { ...eventIdentity, title, createdAt: new Date().toISOString() });
-  await engine.events.emit("ResourceRequested", { ...eventIdentity, resourceId: "mistral", authorized: authorizedResources.includes("mistral") });
+  for (const resourceId of authorizedResources) {
+    await engine.events.emit("ResourceRequested", { ...eventIdentity, resourceId, authorized: true });
+  }
 
   const mission = await engine.runtime.run({
     id: operationId,
@@ -135,15 +152,14 @@ app.post("/mission", async (c) => {
     objective,
     context: resolvedContext,
     ...(legacyParcel ? { parcel: legacyParcel } : {}),
-    preferredTheme: "marketing",
-    requiredCapabilities: requiredCapabilities.length ? requiredCapabilities : ["campaign.generate"],
+    requiredCapabilities,
     prompt: typeof body.prompt === "string" ? body.prompt : undefined,
     authorizedResources,
   });
 
   if (mission.tentacleId) await engine.events.emit("TentacleSelected", { ...eventIdentity, tentacleId: mission.tentacleId });
   if (mission.status === "waiting-authorization") {
-    await engine.events.emit("AuthorizationRequested", { ...eventIdentity, resourceId: mission.resourceResult?.resourceId ?? "mistral", output: mission.output });
+    await engine.events.emit("AuthorizationRequested", { ...eventIdentity, resourceId: mission.resourceResult?.resourceId ?? "unknown", output: mission.output });
   } else if (mission.status === "completed") {
     if (mission.resourceResult) await engine.events.emit("ResourceUsed", {
       ...eventIdentity,
