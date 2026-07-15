@@ -1,4 +1,4 @@
-import type { MissionLifecycleStatus } from "./mission-lifecycle.js";
+import type { MissionLifecycleState } from "./mission-lifecycle.js";
 
 export type UniversalEventKind =
   | "observation.received"
@@ -33,7 +33,7 @@ export interface UniversalEvent extends UniversalEventInput {
 
 export interface MissionProjection {
   missionId: string;
-  status: MissionLifecycleStatus;
+  status: MissionLifecycleState;
   updatedAt: string;
   requiredCapabilities: string[];
   executorId?: string;
@@ -52,7 +52,7 @@ function strings(value: unknown): string[] {
     : [];
 }
 
-const STATUS_BY_KIND: Partial<Record<UniversalEventKind, MissionLifecycleStatus>> = {
+const STATUS_BY_KIND: Readonly<Record<string, MissionLifecycleState | undefined>> = {
   "mission.received": "received",
   "mission.recorded": "recorded",
   "mission.planned": "planned",
@@ -106,7 +106,7 @@ export class UniversalEventStore {
     const events = this.stream(missionId).filter((event) => event.kind.startsWith("mission."));
     if (!events.length) return undefined;
 
-    let status: MissionLifecycleStatus = "received";
+    let status: MissionLifecycleState = "received";
     let requiredCapabilities: string[] = [];
     let executorId: string | undefined;
     let summary: string | undefined;
@@ -126,7 +126,7 @@ export class UniversalEventStore {
     return {
       missionId,
       status,
-      updatedAt: events.at(-1)!.occurredAt,
+      updatedAt: events[events.length - 1]!.occurredAt,
       requiredCapabilities,
       ...(executorId ? { executorId } : {}),
       ...(summary ? { summary } : {}),
