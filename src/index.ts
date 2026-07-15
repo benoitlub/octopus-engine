@@ -40,6 +40,14 @@ export type {
 } from "./adapter-registry.js";
 export { AdapterRegistry } from "./adapter-registry.js";
 
+export type { IntrinsicCapabilityId } from "./intrinsic-capabilities.js";
+export {
+  INTRINSIC_CAPABILITY_IDS,
+  INTRINSIC_CAPABILITIES,
+  isIntrinsicCapability,
+  listIntrinsicCapabilities,
+} from "./intrinsic-capabilities.js";
+
 /** @deprecated Garden belongs to Poulpe Fiction. Kept temporarily for compatibility. */
 export type {
   ParcelStatus,
