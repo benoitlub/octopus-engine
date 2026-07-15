@@ -5,6 +5,8 @@ import { AdapterRegistry, type AdapterRegistrationInput } from "./adapter-regist
 import { CreateSproutCommandHandler } from "./create-sprout-command.js";
 import type { ExecutionContext } from "./execution-contract.js";
 import type { SeedRecord } from "./garden-domain.js";
+import { isIntrinsicCapability } from "./intrinsic-capabilities.js";
+import { MissionLifecycle, type MissionLifecycleState } from "./mission-lifecycle.js";
 import { OctopusEngine } from "./octopus.js";
 import { renderGardenerPage } from "./gardener-page.js";
 import { SeedResonanceCommandHandler } from "./seed-resonance-command.js";
@@ -12,6 +14,7 @@ import { SeedResonanceCommandHandler } from "./seed-resonance-command.js";
 const app = new Hono();
 const engine = new OctopusEngine();
 const adapters = new AdapterRegistry();
+const lifecycle = new MissionLifecycle();
 const seedResonance = new SeedResonanceCommandHandler(engine.events);
 const createSprout = new CreateSproutCommandHandler(engine.events);
 let lastStart: Awaited<ReturnType<OctopusEngine["start"]>> | null = null;
@@ -54,22 +57,27 @@ function isSeedRecord(value: unknown): value is SeedRecord {
   if (!value || typeof value !== "object" || Array.isArray(value)) return false;
   const seed = value as Partial<SeedRecord>;
   const signals = seed.signals;
-  return (
-    typeof seed.id === "string" &&
-    typeof seed.parcelId === "string" &&
-    typeof seed.kind === "string" &&
-    typeof seed.title === "string" &&
-    typeof seed.content === "string" &&
-    typeof seed.status === "string" &&
-    typeof seed.createdAt === "string" &&
-    typeof seed.updatedAt === "string" &&
-    Boolean(signals) &&
-    typeof signals?.maturity === "number" &&
-    typeof signals.coherence === "number" &&
-    typeof signals.utility === "number" &&
-    typeof signals.confidence === "number" &&
-    typeof signals.estimatedCost === "number"
-  );
+  return typeof seed.id === "string" && typeof seed.parcelId === "string" && typeof seed.kind === "string" &&
+    typeof seed.title === "string" && typeof seed.content === "string" && typeof seed.status === "string" &&
+    typeof seed.createdAt === "string" && typeof seed.updatedAt === "string" && Boolean(signals) &&
+    typeof signals?.maturity === "number" && typeof signals.coherence === "number" &&
+    typeof signals.utility === "number" && typeof signals.confidence === "number" &&
+    typeof signals.estimatedCost === "number";
+}
+
+function missionEvent(missionId: string, state: MissionLifecycleState, payload: Record<string, unknown> = {}): void {
+  engine.events.store.append({
+    kind: `mission.${state}`,
+    streamId: missionId,
+    source: "octopus-engine",
+    correlationId: missionId,
+    payload,
+  });
+}
+
+function transition(missionId: string, state: MissionLifecycleState, reason?: string, metadata?: Record<string, unknown>): void {
+  lifecycle.transition(missionId, state, { ...(reason ? { reason } : {}), ...(metadata ? { metadata } : {}) });
+  missionEvent(missionId, state, { ...(reason ? { summary: reason } : {}), ...(metadata ?? {}) });
 }
 
 app.use("*", cors({ origin: "*", allowMethods: ["GET", "POST", "OPTIONS"], allowHeaders: ["Content-Type"] }));
@@ -78,21 +86,11 @@ app.get("/", (c) => c.json({
   name: "octopus-engine",
   status: "alive",
   mode: "neutral-core",
-  routes: [
-    "GET /health",
-    "GET /brief",
-    "GET /garden",
-    "GET /garden-ui",
-    "GET /resources",
-    "GET /adapters",
-    "POST /adapters/register",
-    "POST /adapters/unregister",
-    "POST /mission",
-    "POST /seeds/resonance",
-    "POST /seeds/sprout",
-  ],
+  routes: ["GET /health", "GET /events", "GET /missions/:id", "GET /adapters", "POST /adapters/register", "POST /adapters/unregister", "POST /mission"],
   contracts: {
-    mission: "neutral-execution-v1",
+    mission: "neutral-execution-v2",
+    lifecycle: "universal-mission-lifecycle-v1",
+    eventStore: "universal-event-store-v1",
     adapterRegistration: "octopus-adapter-registration-v1",
     adapterExecution: "octopus-adapter-execution-v1",
     legacyGardenRoutes: "deprecated",
@@ -103,10 +101,16 @@ app.get("/", (c) => c.json({
 app.get("/health", async (c) => c.json({
   status: "alive",
   mode: "neutral-core",
+  eventCount: engine.events.store.all().length,
   adapters: adapters.list().map(({ id, name, version, capabilities, healthUrl, updatedAt }) => ({ id, name, version, capabilities, healthUrl, updatedAt })),
   tentacles: engine.tentacles.list(),
   resources: await engine.resources.inspect(),
 }));
+app.get("/events", (c) => c.json({ events: engine.events.store.all() }));
+app.get("/missions/:id", (c) => {
+  const mission = engine.events.store.projectMission(c.req.param("id"));
+  return mission ? c.json(mission) : c.json({ status: "not-found" }, 404);
+});
 app.get("/brief", async (c) => {
   lastStart = await engine.start();
   return c.json({ brief: lastStart.brief, mission: lastStart.mission, resources: lastStart.resources });
@@ -139,23 +143,17 @@ app.post("/adapters/unregister", async (c) => {
 });
 
 app.post("/seeds/resonance", async (c) => {
-  const body: Record<string, unknown> = await c.req.json<Record<string, unknown>>().catch(() => ({}));
+  const body = await c.req.json<Record<string, unknown>>().catch(() => ({}));
   if (!isSeedRecord(body.seed)) return c.json({ status: "failed", message: "A valid seed snapshot is required." }, 400);
-  const result = await seedResonance.execute({ seed: body.seed, proposedCapabilities: stringList(body.proposedCapabilities) });
-  return c.json({ status: "evaluated", seedId: body.seed.id, result });
+  return c.json({ status: "evaluated", seedId: body.seed.id, result: await seedResonance.execute({ seed: body.seed, proposedCapabilities: stringList(body.proposedCapabilities) }) });
 });
 
 app.post("/seeds/sprout", async (c) => {
-  const body: Record<string, unknown> = await c.req.json<Record<string, unknown>>().catch(() => ({}));
+  const body = await c.req.json<Record<string, unknown>>().catch(() => ({}));
   if (!isSeedRecord(body.seed)) return c.json({ status: "failed", message: "A valid seed snapshot is required." }, 400);
   if (body.decision !== "sprout") return c.json({ status: "failed", message: "An explicit sprout decision is required." }, 400);
   try {
-    const sprout = await createSprout.execute({
-      seed: body.seed,
-      decision: "sprout",
-      rationale: typeof body.rationale === "string" ? body.rationale : undefined,
-      proposedCapabilities: stringList(body.proposedCapabilities),
-    });
+    const sprout = await createSprout.execute({ seed: body.seed, decision: "sprout", rationale: typeof body.rationale === "string" ? body.rationale : undefined, proposedCapabilities: stringList(body.proposedCapabilities) });
     return c.json({ status: "sprouted", seedId: body.seed.id, sprout });
   } catch (error) {
     return c.json({ status: "failed", message: error instanceof Error ? error.message : "Unable to create sprout." }, 409);
@@ -163,99 +161,60 @@ app.post("/seeds/sprout", async (c) => {
 });
 
 app.post("/mission", async (c) => {
-  const body: Record<string, unknown> = await c.req.json<Record<string, unknown>>().catch(() => ({}));
+  const body = await c.req.json<Record<string, unknown>>().catch(() => ({}));
   const context = executionContext(body.context);
-  const legacyParcelId = typeof body.parcelId === "string" ? body.parcelId : undefined;
-  const legacyParcel = context ? undefined : engine.garden.getState().parcels.find((item) => item.id === legacyParcelId) ?? engine.garden.getState().parcels[0];
-  if (!context && !legacyParcel) return c.json({ status: "failed", message: "A neutral execution context is required. Legacy parcel fallback is unavailable." }, 400);
-
+  if (!context) return c.json({ status: "rejected", code: "CONTEXT_REQUIRED", summary: "A neutral execution context is required.", output: {} }, 400);
   const requiredCapabilities = stringList(body.requiredCapabilities);
-  if (!requiredCapabilities.length) {
-    return c.json({
-      status: "failed",
-      code: "CAPABILITY_REQUIRED",
-      message: "At least one explicit required capability is required. Octopus Engine has no domain default.",
-    }, 400);
-  }
+  if (!requiredCapabilities.length) return c.json({ status: "rejected", code: "CAPABILITY_REQUIRED", summary: "At least one explicit required capability is required.", output: {} }, 400);
 
-  const resolvedContext: ExecutionContext = context ?? {
-    id: legacyParcel!.id,
-    label: legacyParcel!.name,
-    objective: legacyParcel!.objective,
-    metadata: { legacySource: "parcel" },
-  };
   const operationId = typeof body.operationId === "string" && body.operationId.trim() ? body.operationId : `mission_${Date.now()}`;
-  const title = typeof body.title === "string" ? body.title : `Execute ${resolvedContext.label ?? resolvedContext.id}`;
-  const objective = typeof body.objective === "string" ? body.objective : resolvedContext.objective ?? "Produce a useful execution result.";
+  const title = typeof body.title === "string" ? body.title : `Execute ${context.label ?? context.id}`;
+  const objective = typeof body.objective === "string" ? body.objective : context.objective ?? "Process the supplied context.";
   const authorizedResources = stringList(body.authorizedResources).length ? stringList(body.authorizedResources) : stringList(body.authorize);
-  const eventIdentity = { missionId: operationId, operationId, contextId: resolvedContext.id, ...(legacyParcel ? { parcelId: legacyParcel.id } : {}) };
+  const common = { operationId, missionId: operationId, contextId: context.id, requiredCapabilities };
 
-  await engine.events.emit("MissionStarted", { ...eventIdentity, title, createdAt: new Date().toISOString() });
-  for (const resourceId of authorizedResources) {
-    await engine.events.emit("ResourceRequested", { ...eventIdentity, resourceId, authorized: true });
+  lifecycle.receive(operationId, { contextId: context.id, requiredCapabilities });
+  missionEvent(operationId, "received", { ...common, title, objective });
+  transition(operationId, "recorded", "Mission recorded.", common);
+  transition(operationId, "planned", "Capabilities resolved.", common);
+
+  const allIntrinsic = requiredCapabilities.every(isIntrinsicCapability);
+  if (allIntrinsic) {
+    transition(operationId, "executing", "Executing intrinsic capabilities.", common);
+    const observation = context.metadata?.event ?? context.metadata?.observation ?? context.metadata ?? {};
+    if (requiredCapabilities.includes("observation.receive")) {
+      engine.events.store.append({ kind: "observation.received", streamId: context.id, source: typeof context.metadata?.source === "string" ? context.metadata.source : "external-application", correlationId: operationId, payload: isRecord(observation) ? observation : { value: observation } });
+      engine.events.store.append({ kind: "observation.recorded", streamId: context.id, source: "octopus-engine", correlationId: operationId, payload: { missionId: operationId, contextId: context.id } });
+    }
+    const output = {
+      decision: "record",
+      reason: "Observation received, timestamped and recorded by Octopus Engine.",
+      actions: ["record_observation"],
+      receivedCapabilities: requiredCapabilities,
+    };
+    transition(operationId, "completed", "Intrinsic mission completed.", { ...common, output });
+    return c.json({ status: "completed", operationId, missionId: operationId, contextId: context.id, summary: output.reason, output, lifecycle: lifecycle.get(operationId) });
   }
 
   const externalAdapter = adapters.select(requiredCapabilities);
-  if (externalAdapter) {
-    await engine.events.emit("AdapterSelected", { ...eventIdentity, adapterId: externalAdapter.id, capabilities: requiredCapabilities });
-    try {
-      const external = await adapters.execute(externalAdapter, {
-        operationId,
-        title,
-        objective,
-        requiredCapabilities,
-        authorizedResources,
-        ...(typeof body.prompt === "string" ? { prompt: body.prompt } : {}),
-        context: resolvedContext,
-      });
-      if (external.status === "completed") await engine.events.emit("MissionCompleted", { ...eventIdentity, adapterId: externalAdapter.id, output: external.output ?? {} });
-      else if (external.status === "waiting-authorization") await engine.events.emit("AuthorizationRequested", { ...eventIdentity, adapterId: externalAdapter.id, output: external.output ?? {} });
-      else await engine.events.emit("MissionFailed", { ...eventIdentity, adapterId: externalAdapter.id, reason: external.summary, output: external.output ?? {} });
-      return c.json({ ...external, operationId, contextId: resolvedContext.id, adapterId: externalAdapter.id });
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "External adapter execution failed.";
-      await engine.events.emit("MissionFailed", { ...eventIdentity, adapterId: externalAdapter.id, reason: message, output: {} });
-      return c.json({ status: "failed", operationId, contextId: resolvedContext.id, adapterId: externalAdapter.id, summary: message, output: {} }, 502);
-    }
+  if (!externalAdapter) {
+    transition(operationId, "waiting-executor", "No registered adapter currently provides every required capability.", common);
+    return c.json({ status: "waiting-executor", operationId, missionId: operationId, contextId: context.id, summary: "Mission recorded and waiting for a compatible executor.", output: { requiredCapabilities }, lifecycle: lifecycle.get(operationId) }, 202);
   }
 
-  const mission = await engine.runtime.run({
-    id: operationId,
-    title,
-    objective,
-    context: resolvedContext,
-    ...(legacyParcel ? { parcel: legacyParcel } : {}),
-    requiredCapabilities,
-    prompt: typeof body.prompt === "string" ? body.prompt : undefined,
-    authorizedResources,
-  });
-
-  if (mission.tentacleId) await engine.events.emit("TentacleSelected", { ...eventIdentity, tentacleId: mission.tentacleId });
-  if (mission.status === "waiting-authorization") {
-    await engine.events.emit("AuthorizationRequested", { ...eventIdentity, resourceId: mission.resourceResult?.resourceId ?? "unknown", output: mission.output });
-  } else if (mission.status === "completed") {
-    if (mission.resourceResult) await engine.events.emit("ResourceUsed", {
-      ...eventIdentity,
-      usageId: `usage_${Date.now()}`,
-      resourceId: mission.resourceResult.resourceId,
-      status: mission.resourceResult.status,
-      usage: mission.resourceResult.usage,
-    });
-    if (legacyParcel) {
-      const text = typeof mission.output.text === "string" ? mission.output.text : JSON.stringify(mission.output);
-      await engine.events.emit("HarvestCreated", { ...eventIdentity, harvestId: `harvest_${Date.now()}`, title, preview: text.slice(0, 280) });
-    }
-    await engine.events.emit("MissionCompleted", { ...eventIdentity, output: mission.output });
-  } else {
-    await engine.events.emit("MissionFailed", { ...eventIdentity, reason: mission.summary, output: mission.output });
+  transition(operationId, "waiting-executor", "Compatible adapter selected.", { ...common, executorId: externalAdapter.id });
+  transition(operationId, "executing", "External adapter execution started.", { ...common, executorId: externalAdapter.id });
+  try {
+    const external = await adapters.execute(externalAdapter, { operationId, title, objective, requiredCapabilities, authorizedResources, ...(typeof body.prompt === "string" ? { prompt: body.prompt } : {}), context });
+    if (external.status === "waiting-authorization") transition(operationId, "waiting-authorization", external.summary, { ...common, executorId: externalAdapter.id, output: external.output ?? {} });
+    else if (external.status === "completed") transition(operationId, "completed", external.summary, { ...common, executorId: externalAdapter.id, output: external.output ?? {} });
+    else transition(operationId, "failed", external.summary, { ...common, executorId: externalAdapter.id, output: external.output ?? {} });
+    return c.json({ ...external, operationId, missionId: operationId, contextId: context.id, adapterId: externalAdapter.id, lifecycle: lifecycle.get(operationId) });
+  } catch (error) {
+    const summary = error instanceof Error ? error.message : "External adapter execution failed.";
+    transition(operationId, "failed", summary, { ...common, executorId: externalAdapter.id });
+    return c.json({ status: "failed", operationId, missionId: operationId, contextId: context.id, adapterId: externalAdapter.id, summary, output: {}, lifecycle: lifecycle.get(operationId) }, 502);
   }
-
-  return c.json({
-    ...mission,
-    operationId: mission.operationId || operationId,
-    contextId: mission.contextId || resolvedContext.id,
-    ...(legacyParcel ? { parcelId: mission.parcelId || legacyParcel.id } : {}),
-  });
 });
 
 const port = Number(process.env.PORT ?? 3000);
