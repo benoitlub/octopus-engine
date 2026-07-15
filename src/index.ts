@@ -32,6 +32,14 @@ export type {
   ExecutionResult,
 } from "./execution-contract.js";
 
+export type {
+  AdapterRegistration,
+  AdapterRegistrationInput,
+  ExternalMissionRequest,
+  ExternalMissionResult,
+} from "./adapter-registry.js";
+export { AdapterRegistry } from "./adapter-registry.js";
+
 /** @deprecated Garden belongs to Poulpe Fiction. Kept temporarily for compatibility. */
 export type {
   ParcelStatus,
