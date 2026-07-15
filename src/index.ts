@@ -60,6 +60,14 @@ export {
   isMissionLifecycleState,
 } from "./mission-lifecycle.js";
 
+export type {
+  UniversalEventKind,
+  UniversalEventInput,
+  UniversalEvent,
+  MissionProjection,
+} from "./event-store.js";
+export { UniversalEventStore } from "./event-store.js";
+
 /** @deprecated Garden belongs to Poulpe Fiction. Kept temporarily for compatibility. */
 export type {
   ParcelStatus,
