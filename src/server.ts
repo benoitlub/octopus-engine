@@ -2,7 +2,6 @@ import { serve } from "@hono/node-server";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { CreateSproutCommandHandler } from "./create-sprout-command.js";
-import { handleCreatureObservation, parseCreatureObservation } from "./creature-observation.js";
 import type { ExecutionContext } from "./execution-contract.js";
 import type { SeedRecord } from "./garden-domain.js";
 import { OctopusEngine } from "./octopus.js";
@@ -55,87 +54,45 @@ function isSeedRecord(value: unknown): value is SeedRecord {
   );
 }
 
-app.use(
-  "*",
-  cors({
-    origin: "*",
-    allowMethods: ["GET", "POST", "OPTIONS"],
-    allowHeaders: ["Content-Type"],
-  }),
-);
+app.use("*", cors({ origin: "*", allowMethods: ["GET", "POST", "OPTIONS"], allowHeaders: ["Content-Type"] }));
 
-app.get("/", (c) =>
-  c.json({
-    name: "octopus-engine",
-    status: "alive",
-    routes: [
-      "GET /health",
-      "GET /brief",
-      "GET /garden",
-      "GET /garden-ui",
-      "GET /resources",
-      "POST /mission",
-      "POST /observations/creature-sync",
-      "POST /seeds/resonance",
-      "POST /seeds/sprout",
-    ],
-    contracts: {
-      mission: "neutral-execution-v1",
-      creatureObservation: "creature-observation-v1",
-      legacyGardenRoutes: "deprecated",
-    },
-  }),
-);
+app.get("/", (c) => c.json({
+  name: "octopus-engine",
+  status: "alive",
+  routes: [
+    "GET /health",
+    "GET /brief",
+    "GET /garden",
+    "GET /garden-ui",
+    "GET /resources",
+    "POST /mission",
+    "POST /seeds/resonance",
+    "POST /seeds/sprout",
+  ],
+  contracts: { mission: "neutral-execution-v1", legacyGardenRoutes: "deprecated" },
+}));
 
-app.get("/health", async (c) => {
-  const resources = await engine.resources.inspect();
-  return c.json({ status: "alive", resources });
-});
-
+app.get("/health", async (c) => c.json({ status: "alive", resources: await engine.resources.inspect() }));
 app.get("/brief", async (c) => {
   lastStart = await engine.start();
   return c.json({ brief: lastStart.brief, mission: lastStart.mission, resources: lastStart.resources });
 });
-
 app.get("/garden-ui", (c) => c.html(renderGardenerPage()));
 app.get("/gardener", (c) => c.html(renderGardenerPage()));
 app.get("/garden", (c) => c.json(engine.garden.getState()));
 app.get("/resources", async (c) => c.json(await engine.resources.inspect()));
 
-app.post("/observations/creature-sync", async (c) => {
-  const body: unknown = await c.req.json().catch(() => null);
-  const observation = parseCreatureObservation(body);
-  if (!observation) {
-    return c.json({
-      status: "failed",
-      message: "A valid CreatureObservationEvent is required.",
-    }, 400);
-  }
-
-  const response = await handleCreatureObservation(engine, observation);
-  return c.json(response);
-});
-
 app.post("/seeds/resonance", async (c) => {
   const body: Record<string, unknown> = await c.req.json<Record<string, unknown>>().catch(() => ({}));
-  if (!isSeedRecord(body.seed)) {
-    return c.json({ status: "failed", message: "A valid seed snapshot is required." }, 400);
-  }
-
-  const proposedCapabilities = stringList(body.proposedCapabilities);
-  const result = await seedResonance.execute({ seed: body.seed, proposedCapabilities });
+  if (!isSeedRecord(body.seed)) return c.json({ status: "failed", message: "A valid seed snapshot is required." }, 400);
+  const result = await seedResonance.execute({ seed: body.seed, proposedCapabilities: stringList(body.proposedCapabilities) });
   return c.json({ status: "evaluated", seedId: body.seed.id, result });
 });
 
 app.post("/seeds/sprout", async (c) => {
   const body: Record<string, unknown> = await c.req.json<Record<string, unknown>>().catch(() => ({}));
-  if (!isSeedRecord(body.seed)) {
-    return c.json({ status: "failed", message: "A valid seed snapshot is required." }, 400);
-  }
-  if (body.decision !== "sprout") {
-    return c.json({ status: "failed", message: "An explicit sprout decision is required." }, 400);
-  }
-
+  if (!isSeedRecord(body.seed)) return c.json({ status: "failed", message: "A valid seed snapshot is required." }, 400);
+  if (body.decision !== "sprout") return c.json({ status: "failed", message: "An explicit sprout decision is required." }, 400);
   try {
     const sprout = await createSprout.execute({
       seed: body.seed,
@@ -145,28 +102,16 @@ app.post("/seeds/sprout", async (c) => {
     });
     return c.json({ status: "sprouted", seedId: body.seed.id, sprout });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Unable to create sprout.";
-    return c.json({ status: "failed", message }, 409);
+    return c.json({ status: "failed", message: error instanceof Error ? error.message : "Unable to create sprout." }, 409);
   }
 });
 
 app.post("/mission", async (c) => {
   const body: Record<string, unknown> = await c.req.json<Record<string, unknown>>().catch(() => ({}));
   const context = executionContext(body.context);
-
-  // Temporary compatibility bridge for clients that still send parcelId.
   const legacyParcelId = typeof body.parcelId === "string" ? body.parcelId : undefined;
-  const legacyParcel = context
-    ? undefined
-    : engine.garden.getState().parcels.find((item) => item.id === legacyParcelId)
-      ?? engine.garden.getState().parcels[0];
-
-  if (!context && !legacyParcel) {
-    return c.json({
-      status: "failed",
-      message: "A neutral execution context is required. Legacy parcel fallback is unavailable.",
-    }, 400);
-  }
+  const legacyParcel = context ? undefined : engine.garden.getState().parcels.find((item) => item.id === legacyParcelId) ?? engine.garden.getState().parcels[0];
+  if (!context && !legacyParcel) return c.json({ status: "failed", message: "A neutral execution context is required. Legacy parcel fallback is unavailable." }, 400);
 
   const resolvedContext: ExecutionContext = context ?? {
     id: legacyParcel!.id,
@@ -174,36 +119,15 @@ app.post("/mission", async (c) => {
     objective: legacyParcel!.objective,
     metadata: { legacySource: "parcel" },
   };
-  const operationId = typeof body.operationId === "string" && body.operationId.trim()
-    ? body.operationId
-    : `mission_${Date.now()}`;
-  const title = typeof body.title === "string"
-    ? body.title
-    : `Execute ${resolvedContext.label ?? resolvedContext.id}`;
-  const objective = typeof body.objective === "string"
-    ? body.objective
-    : resolvedContext.objective ?? "Produce a useful execution result.";
+  const operationId = typeof body.operationId === "string" && body.operationId.trim() ? body.operationId : `mission_${Date.now()}`;
+  const title = typeof body.title === "string" ? body.title : `Execute ${resolvedContext.label ?? resolvedContext.id}`;
+  const objective = typeof body.objective === "string" ? body.objective : resolvedContext.objective ?? "Produce a useful execution result.";
   const requiredCapabilities = stringList(body.requiredCapabilities);
-  const authorizedResources = stringList(body.authorizedResources).length
-    ? stringList(body.authorizedResources)
-    : stringList(body.authorize);
-  const eventIdentity = {
-    missionId: operationId,
-    operationId,
-    contextId: resolvedContext.id,
-    ...(legacyParcel ? { parcelId: legacyParcel.id } : {}),
-  };
+  const authorizedResources = stringList(body.authorizedResources).length ? stringList(body.authorizedResources) : stringList(body.authorize);
+  const eventIdentity = { missionId: operationId, operationId, contextId: resolvedContext.id, ...(legacyParcel ? { parcelId: legacyParcel.id } : {}) };
 
-  await engine.events.emit("MissionStarted", {
-    ...eventIdentity,
-    title,
-    createdAt: new Date().toISOString(),
-  });
-  await engine.events.emit("ResourceRequested", {
-    ...eventIdentity,
-    resourceId: "mistral",
-    authorized: authorizedResources.includes("mistral"),
-  });
+  await engine.events.emit("MissionStarted", { ...eventIdentity, title, createdAt: new Date().toISOString() });
+  await engine.events.emit("ResourceRequested", { ...eventIdentity, resourceId: "mistral", authorized: authorizedResources.includes("mistral") });
 
   const mission = await engine.runtime.run({
     id: operationId,
@@ -217,50 +141,24 @@ app.post("/mission", async (c) => {
     authorizedResources,
   });
 
-  if (mission.tentacleId) {
-    await engine.events.emit("TentacleSelected", {
-      ...eventIdentity,
-      tentacleId: mission.tentacleId,
-    });
-  }
-
+  if (mission.tentacleId) await engine.events.emit("TentacleSelected", { ...eventIdentity, tentacleId: mission.tentacleId });
   if (mission.status === "waiting-authorization") {
-    await engine.events.emit("AuthorizationRequested", {
-      ...eventIdentity,
-      resourceId: mission.resourceResult?.resourceId ?? "mistral",
-      output: mission.output,
-    });
+    await engine.events.emit("AuthorizationRequested", { ...eventIdentity, resourceId: mission.resourceResult?.resourceId ?? "mistral", output: mission.output });
   } else if (mission.status === "completed") {
-    if (mission.resourceResult) {
-      await engine.events.emit("ResourceUsed", {
-        ...eventIdentity,
-        usageId: `usage_${Date.now()}`,
-        resourceId: mission.resourceResult.resourceId,
-        status: mission.resourceResult.status,
-        usage: mission.resourceResult.usage,
-      });
-    }
-
-    // Legacy Garden projection is maintained only for the old parcel contract.
+    if (mission.resourceResult) await engine.events.emit("ResourceUsed", {
+      ...eventIdentity,
+      usageId: `usage_${Date.now()}`,
+      resourceId: mission.resourceResult.resourceId,
+      status: mission.resourceResult.status,
+      usage: mission.resourceResult.usage,
+    });
     if (legacyParcel) {
       const text = typeof mission.output.text === "string" ? mission.output.text : JSON.stringify(mission.output);
-      await engine.events.emit("HarvestCreated", {
-        ...eventIdentity,
-        harvestId: `harvest_${Date.now()}`,
-        title,
-        preview: text.slice(0, 280),
-      });
+      await engine.events.emit("HarvestCreated", { ...eventIdentity, harvestId: `harvest_${Date.now()}`, title, preview: text.slice(0, 280) });
     }
-    await engine.events.emit("MissionCompleted", {
-      ...eventIdentity,
-      output: mission.output,
-    });
+    await engine.events.emit("MissionCompleted", { ...eventIdentity, output: mission.output });
   } else {
-    await engine.events.emit("MissionFailed", {
-      ...eventIdentity,
-      reason: mission.summary,
-      output: mission.output,
-    });
+    await engine.events.emit("MissionFailed", { ...eventIdentity, reason: mission.summary, output: mission.output });
   }
 
   return c.json({
