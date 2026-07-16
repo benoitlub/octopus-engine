@@ -8,6 +8,7 @@ import type { SeedRecord } from "./garden-domain.js";
 import { isIntrinsicCapability } from "./intrinsic-capabilities.js";
 import { MissionLifecycle, type MissionLifecycleState } from "./mission-lifecycle.js";
 import { OctopusEngine } from "./octopus.js";
+import { projectObservationKnowledge } from "./observation-knowledge.js";
 import { renderGardenerPage } from "./gardener-page.js";
 import { SeedResonanceCommandHandler } from "./seed-resonance-command.js";
 
@@ -96,6 +97,7 @@ app.get("/", (c) => c.json({
     mission: "neutral-execution-v2",
     lifecycle: "universal-mission-lifecycle-v1",
     eventStore: "universal-event-store-v1",
+    observationKnowledge: "universal-observation-knowledge-v1",
     adapterRegistration: "octopus-adapter-registration-v1",
     adapterExecution: "octopus-adapter-execution-v1",
     legacyGardenRoutes: "deprecated",
@@ -187,15 +189,30 @@ app.post("/mission", async (c) => {
   if (allIntrinsic) {
     transition(operationId, "executing", "Executing intrinsic capabilities.", common);
     const observation = context.metadata?.event ?? context.metadata?.observation ?? context.metadata ?? {};
+    let knowledge: ReturnType<typeof projectObservationKnowledge> | undefined;
     if (requiredCapabilities.includes("observation.receive")) {
-      engine.events.store.append({ kind: "observation.received", streamId: context.id, source: typeof context.metadata?.source === "string" ? context.metadata.source : "external-application", correlationId: operationId, payload: isRecord(observation) ? observation : { value: observation } });
-      engine.events.store.append({ kind: "observation.recorded", streamId: context.id, source: "octopus-engine", correlationId: operationId, payload: { missionId: operationId, contextId: context.id } });
+      const observationEvent = engine.events.store.append({
+        kind: "observation.received",
+        streamId: context.id,
+        source: typeof context.metadata?.source === "string" ? context.metadata.source : "external-application",
+        correlationId: operationId,
+        payload: isRecord(observation) ? observation : { value: observation },
+      });
+      knowledge = projectObservationKnowledge(observationEvent, engine.events.store.all());
+      engine.events.store.append({
+        kind: "observation.recorded",
+        streamId: context.id,
+        source: "octopus-engine",
+        correlationId: operationId,
+        payload: { missionId: operationId, contextId: context.id, knowledge },
+      });
     }
     const output = {
       decision: "record",
       reason: "Observation received, timestamped and recorded by Octopus Engine.",
       actions: ["record_observation"],
       receivedCapabilities: requiredCapabilities,
+      ...(knowledge ? { knowledge } : {}),
     };
     transition(operationId, "completed", "Intrinsic mission completed.", { ...common, output });
     return c.json({ status: "completed", operationId, missionId: operationId, contextId: context.id, summary: output.reason, output, lifecycle: lifecycle.get(operationId) });
