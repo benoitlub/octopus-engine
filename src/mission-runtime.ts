@@ -134,6 +134,8 @@ export class MissionRuntime {
       sensitive: resource.requiresAuthorization,
       authorizedResources: input.authorizedResources,
       input: {
+        title: input.title,
+        objective: input.objective,
         system: "You are a resource used by Octopus Engine. Produce concise, actionable output in French when the prompt is French. Do not expose internal runtime mechanics to clients.",
         prompt: input.prompt ?? defaultPrompt(input, context),
       },

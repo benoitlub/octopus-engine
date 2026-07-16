@@ -6,6 +6,7 @@ import { TentacleRegistry, type TentacleProfile } from "./tentacle.js";
 import { PolicyManager } from "./policy.js";
 import { ResourceManager } from "./resource-manager.js";
 import { MistralResource } from "./resources/mistral-resource.js";
+import { PublisherResource } from "./resources/publisher-resource.js";
 import { MissionRuntime, type RuntimeMissionResult } from "./mission-runtime.js";
 import { OctopusRhythm } from "./rhythm.js";
 
@@ -28,9 +29,17 @@ function createDefaultTentacles(): TentacleProfile[] {
       ],
       resources: [
         {
+          id: "publisher",
+          name: "Publisher Production Engine",
+          capabilityIds: ["copy.generate"],
+          reliability: 0.9,
+          costLevel: "free",
+          requiresAuthorization: false,
+        },
+        {
           id: "mistral",
           name: "Mistral AI",
-          capabilityIds: ["campaign.generate", "copy.generate"],
+          capabilityIds: ["campaign.generate"],
           reliability: 0.92,
           costLevel: "low",
           requiresAuthorization: true,
@@ -59,7 +68,7 @@ export class OctopusEngine {
     this.gardenProjector.connect();
     this.tentacles = new TentacleRegistry(createDefaultTentacles());
     this.resources = new ResourceManager(
-      [new MistralResource()],
+      [new PublisherResource(), new MistralResource()],
       new PolicyManager([{ resourceId: "mistral", decision: "ask", reason: "Mistral requires gardener approval by default." }]),
     );
     this.runtime = new MissionRuntime(this.tentacles, this.resources);

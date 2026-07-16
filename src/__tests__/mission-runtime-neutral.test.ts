@@ -1,7 +1,14 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { MissionRuntime } from "../mission-runtime.js";
+import { OctopusEngine } from "../octopus.js";
 import { ResourceManager, type OctopusResource, type ResourceRequest } from "../resource-manager.js";
 import { TentacleRegistry } from "../tentacle.js";
+
+const originalFetch = globalThis.fetch;
+
+afterEach(() => {
+  globalThis.fetch = originalFetch;
+});
 
 function makeRuntime() {
   const resource: OctopusResource = {
@@ -121,6 +128,60 @@ describe("MissionRuntime neutral execution contract", () => {
       kind: "landing-page",
       title: "Landing page TERRA",
       content: { text: expect.stringContaining("Créer la landing page TERRA") },
+    });
+  });
+
+  it("routes copy.generate through Publisher and returns a completed Markdown artifact", async () => {
+    const fetchMock = vi.fn(async (_url: string | URL | Request, _init?: RequestInit) => ({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        status: "completed",
+        artifact: {
+          title: "Récolte Yael",
+          content: "# Récolte Yael\n\nUn Markdown exploitable.",
+          mimeType: "text/markdown",
+          metadata: { provider: "mistral", model: "mistral-large-latest", status: "completed" },
+        },
+      }),
+    } as Response));
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+    const engine = new OctopusEngine();
+    const result = await engine.runtime.run({
+      id: "yael-copy",
+      title: "Récolte Yael",
+      objective: "Produire une récolte exploitable pour Yael.",
+      context: {
+        id: "yael-bali",
+        label: "Yael Bali",
+        metadata: { seedId: "yael", expectedHarvests: ["landing-page"] },
+      },
+      requiredCapabilities: ["copy.generate"],
+      preferredTheme: "marketing",
+      prompt: "Trouve un prospect intéressant pour Yael.",
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://blacklace-publisher-api.onrender.com/api/production/execute",
+      expect.objectContaining({
+        method: "POST",
+        body: expect.stringContaining("copy.generate"),
+      }),
+    );
+    expect(result.status).toBe("completed");
+    expect(result.resourceResult?.resourceId).toBe("publisher");
+    expect(result.output.text).toContain("# Récolte Yael");
+    expect(result.output.artifacts).toEqual([
+      expect.objectContaining({
+        artifactType: "markdown",
+        mimeType: "text/markdown",
+        status: "completed",
+      }),
+    ]);
+    expect(result.artifacts?.[0]).toMatchObject({
+      kind: "landing-page",
+      content: { text: expect.stringContaining("# Récolte Yael") },
     });
   });
 });
