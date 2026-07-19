@@ -108,16 +108,25 @@ export class AdapterRegistry {
       const message = typeof payload.message === "string" ? payload.message : `Adapter execution failed (${response.status}).`;
       return { operationId: mission.operationId, status: "failed", summary: message, output: payload };
     }
-    const status = payload.status === "completed" || payload.status === "waiting-authorization" || payload.status === "failed"
-      ? payload.status
-      : "completed";
+
+    const adapterStatus = typeof payload.status === "string" ? payload.status : undefined;
+    const status = adapterStatus === "needs-input"
+      ? "waiting-authorization"
+      : adapterStatus === "completed" || adapterStatus === "waiting-authorization" || adapterStatus === "failed"
+        ? adapterStatus
+        : "completed";
+    const rawOutput = payload.output && typeof payload.output === "object" && !Array.isArray(payload.output)
+      ? payload.output as Record<string, unknown>
+      : payload;
+    const output = adapterStatus === "needs-input"
+      ? { ...rawOutput, adapterStatus: "needs-input" }
+      : rawOutput;
+
     return {
       operationId: typeof payload.operationId === "string" ? payload.operationId : mission.operationId,
       status,
       summary: typeof payload.summary === "string" ? payload.summary : `Mission handled by ${adapter.name}.`,
-      output: payload.output && typeof payload.output === "object" && !Array.isArray(payload.output)
-        ? payload.output as Record<string, unknown>
-        : payload,
+      output,
       ...(Array.isArray(payload.artifacts) ? { artifacts: payload.artifacts } : {}),
     };
   }
