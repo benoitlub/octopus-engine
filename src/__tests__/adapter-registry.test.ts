@@ -42,4 +42,36 @@ describe("AdapterRegistry", () => {
     expect(result.output).toEqual({ text: "hello" });
     expect(fetchImpl).toHaveBeenCalledOnce();
   });
+
+  it("keeps an adapter needs-input response out of completed state", async () => {
+    const registry = new AdapterRegistry();
+    const adapter = registry.register({
+      id: "publisher",
+      name: "Publisher adapter",
+      capabilities: ["copy.generate"],
+      executeUrl: "https://example.test/execute",
+    });
+    const fetchImpl = vi.fn(async () => new Response(JSON.stringify({
+      status: "needs-input",
+      summary: "A verified Knowledge Package is required.",
+      output: {
+        question: { key: "verified-knowledge-package", label: "Which package?" },
+      },
+    }), { status: 200, headers: { "Content-Type": "application/json" } }));
+
+    const result = await registry.execute(adapter, {
+      operationId: "op-needs-input",
+      title: "Prepare a harvest",
+      objective: "Produce useful copy",
+      requiredCapabilities: ["copy.generate"],
+      authorizedResources: [],
+      context: { id: "parcel-1" },
+    }, fetchImpl as unknown as typeof fetch);
+
+    expect(result.status).toBe("waiting-authorization");
+    expect(result.output).toMatchObject({
+      adapterStatus: "needs-input",
+      question: { key: "verified-knowledge-package" },
+    });
+  });
 });
