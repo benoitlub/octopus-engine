@@ -2,6 +2,13 @@ name: Publisher autonomous curation
 
 on:
   workflow_dispatch:
+    inputs:
+      mission_json:
+        description: Mission Poulpe au format JSON (optionnel)
+        required: false
+        type: string
+  issues:
+    types: [opened]
   schedule:
     - cron: "17,47 * * * *"
 
@@ -10,11 +17,13 @@ concurrency:
   cancel-in-progress: false
 
 permissions:
-  contents: read
+  contents: write
   actions: write
+  issues: write
 
 jobs:
   curate:
+    if: github.event_name != 'issues' || startsWith(github.event.issue.title, '[POULPE]')
     runs-on: ubuntu-latest
     timeout-minutes: 20
     env:
@@ -32,6 +41,8 @@ jobs:
       AI_MODEL: mistral-small-latest
       MISTRAL_API_KEY: ${{ secrets.MISTRAL_API_KEY }}
       PUBLISHER_CURATION_SUBJECTS: terra,neverland-ltd,la-feulette-tachetee,420-dice,pro-hibited-online,blacklace-dice,creature-sync,feuch-institute,bazar-du-feuch,poulpe-fiction,gerard-et-gerard
+      POULPE_ISSUE_BODY: ${{ github.event.issue.body }}
+      MANUAL_MISSION_JSON: ${{ inputs.mission_json }}
     steps:
       - name: Checkout Octopus Engine
         uses: actions/checkout@v4
@@ -88,7 +99,6 @@ jobs:
             fi
             sleep 2
           done
-          echo "Octopus or Publisher did not become healthy"
           cat octopus.log || true
           cat publisher.log || true
           exit 1
@@ -100,44 +110,73 @@ jobs:
           curl --fail --silent --show-error \
             -X POST "$OCTOPUS_URL/adapters/register" \
             -H "Content-Type: application/json" \
-            --data "$(jq -n \
-              --arg executeUrl "$PUBLISHER_ADAPTER_URL" \
-              '{id:"publisher",name:"Blacklace Publisher",version:"github-actions",capabilities:["knowledge.search","copy.generate","content.article.write","content.social.write","landing.generate"],executeUrl:$executeUrl}')"
+            --data "$(jq -n --arg executeUrl "$PUBLISHER_ADAPTER_URL" '{id:"publisher",name:"Blacklace Publisher",version:"github-actions",capabilities:["knowledge.search","copy.generate","content.article.write","content.social.write","landing.generate"],executeUrl:$executeUrl}')"
 
-      - name: Prepare due curation wakes
+      - name: Prepare due wakes
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p octopus/.octopus
           NOW="$(date -u +%Y-%m-%dT%H:%M:%S.000Z)"
-          IFS=',' read -ra SUBJECTS <<< "$PUBLISHER_CURATION_SUBJECTS"
-          WAKES='[]'
-          for subject in "${SUBJECTS[@]}"; do
-            subject="$(echo "$subject" | xargs)"
-            [ -n "$subject" ] || continue
-            operation="publisher-curation-${subject}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
-            wake="$(jq -n \
-              --arg now "$NOW" \
-              --arg subject "$subject" \
-              --arg operation "$operation" \
-              '{id:("publisher-curation-"+$subject),source:"publisher",status:"scheduled",nextRunAt:$now,attempts:0,maxAttempts:3,createdAt:$now,updatedAt:$now,mission:{operationId:$operation,title:("Curate knowledge for "+$subject),objective:("Discover, compare, qualify and digest verified knowledge for "+$subject+" without producing public content."),requiredCapabilities:["knowledge.search"],authorizedResources:["notion-workspace"],context:{id:("publisher:"+$subject),label:$subject,metadata:{trigger:"github-actions",cycle:"curation",knowledgeSlug:$subject,parcelId:$subject}}}}')"
-            WAKES="$(jq --argjson wake "$wake" '. + [$wake]' <<< "$WAKES")"
-          done
-          jq -n --argjson wakes "$WAKES" '{version:1,wakes:$wakes}' > octopus/$OCTOPUS_WAKE_STORE
+          REQUEST=""
+          if [ "$GITHUB_EVENT_NAME" = "issues" ]; then
+            REQUEST="$POULPE_ISSUE_BODY"
+          elif [ -n "${MANUAL_MISSION_JSON:-}" ]; then
+            REQUEST="$MANUAL_MISSION_JSON"
+          fi
+
+          if [ -n "$REQUEST" ]; then
+            echo "$REQUEST" | jq -e 'type == "object" and .operationId and .requiredCapabilities' >/dev/null
+            WAKE="$(jq -n --arg now "$NOW" --argjson mission "$REQUEST" '{version:1,wakes:[{id:("poulpe-"+$mission.operationId),source:"poulpe-fiction",status:"scheduled",nextRunAt:$now,attempts:0,maxAttempts:3,createdAt:$now,updatedAt:$now,mission:$mission}]}')"
+            printf '%s\n' "$WAKE" > octopus/$OCTOPUS_WAKE_STORE
+          else
+            IFS=',' read -ra SUBJECTS <<< "$PUBLISHER_CURATION_SUBJECTS"
+            WAKES='[]'
+            for subject in "${SUBJECTS[@]}"; do
+              subject="$(echo "$subject" | xargs)"
+              [ -n "$subject" ] || continue
+              operation="publisher-curation-${subject}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+              wake="$(jq -n --arg now "$NOW" --arg subject "$subject" --arg operation "$operation" '{id:("publisher-curation-"+$subject),source:"publisher",status:"scheduled",nextRunAt:$now,attempts:0,maxAttempts:3,createdAt:$now,updatedAt:$now,mission:{operationId:$operation,title:("Curate knowledge for "+$subject),objective:("Discover, compare, qualify and digest verified knowledge for "+$subject+" without producing public content."),requiredCapabilities:["knowledge.search"],authorizedResources:["notion-workspace"],context:{id:("publisher:"+$subject),label:$subject,metadata:{trigger:"github-actions",cycle:"curation",knowledgeSlug:$subject,parcelId:$subject}}}}')"
+              WAKES="$(jq --argjson wake "$wake" '. + [$wake]' <<< "$WAKES")"
+            done
+            jq -n --argjson wakes "$WAKES" '{version:1,wakes:$wakes}' > octopus/$OCTOPUS_WAKE_STORE
+          fi
 
       - name: Dispatch through AutonomousRunner
         working-directory: octopus
         run: npm run octopus:runner:once
 
-      - name: Build curation report
+      - name: Build reports and public Garden feed
         if: always()
         shell: bash
         run: |
-          mkdir -p curation-report
+          mkdir -p curation-report octopus/garden-feed
           cp octopus/$OCTOPUS_WAKE_STORE curation-report/wakes.json 2>/dev/null || true
           cp octopus.log curation-report/octopus.log 2>/dev/null || true
           cp publisher.log curation-report/publisher.log 2>/dev/null || true
           jq '{version, summary:{total:(.wakes|length), completed:([.wakes[]|select(.status=="completed")]|length), failed:([.wakes[]|select(.status=="failed")]|length)}, wakes:[.wakes[]|{id,status,lastCompletedAt,lastError,lastResult}]}' octopus/$OCTOPUS_WAKE_STORE > curation-report/summary.json 2>/dev/null || true
+          jq --arg generatedAt "$(date -u +%Y-%m-%dT%H:%M:%S.000Z)" --arg runUrl "https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}" '{version:"garden-feed-v1",generatedAt:$generatedAt,runUrl:$runUrl,harvests:[.wakes[]|{operationId:(.mission.operationId // .lastResult.operationId),parcelId:(.mission.context.metadata.parcelId // .mission.context.id),seedId:(.mission.context.metadata.seedId // .mission.context.metadata.knowledgeSlug),title:(.mission.title // "Récolte"),status,completedAt:lastCompletedAt,error:lastError,result:lastResult,source:"github-actions"}]}' octopus/$OCTOPUS_WAKE_STORE > octopus/garden-feed/latest.json
+
+      - name: Publish Garden feed to main
+        if: always()
+        working-directory: octopus
+        shell: bash
+        run: |
+          git config user.name "Gerard GitHub Runner"
+          git config user.email "actions@github.com"
+          git add garden-feed/latest.json
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "garden: publish latest Poulpe harvest feed"
+          git pull --rebase origin main
+          git push origin HEAD:main
+
+      - name: Close processed Poulpe issue
+        if: always() && github.event_name == 'issues'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.createComment({owner: context.repo.owner, repo: context.repo.repo, issue_number: context.issue.number, body: '🐙 Mission traitée par Octopus + Publisher. Le résultat est publié dans `garden-feed/latest.json`.'});
+            await github.rest.issues.update({owner: context.repo.owner, repo: context.repo.repo, issue_number: context.issue.number, state: 'closed'});
 
       - name: Upload curation report
         if: always()
