@@ -11,47 +11,86 @@ concurrency:
 
 permissions:
   contents: read
+  actions: write
 
 jobs:
   curate:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 20
     env:
-      OCTOPUS_URL: ${{ secrets.OCTOPUS_URL }}
-      PUBLISHER_ADAPTER_URL: ${{ secrets.PUBLISHER_ADAPTER_URL }}
-      PUBLISHER_HEALTH_URL: ${{ secrets.PUBLISHER_HEALTH_URL }}
+      OCTOPUS_URL: http://127.0.0.1:3000
       OCTOPUS_WAKE_STORE: .octopus/wakes.json
+      PUBLISHER_URL: http://127.0.0.1:3100
+      PUBLISHER_ADAPTER_URL: http://127.0.0.1:3100/api/octopus-adapter
+      OCTOPUS_ENGINE_URL: http://127.0.0.1:3000
+      PORT: "3100"
+      KNOWLEDGE_CONNECTOR: notion
+      NOTION_API_KEY: ${{ secrets.NOTION_API_KEY }}
+      NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
+      NOTION_API_TOKEN: ${{ secrets.NOTION_API_TOKEN }}
+      PUBLISHER_CURATION_SUBJECTS: terra,neverland-ltd,la-feulette-tachetee,420-dice,pro-hibited-online,blacklace-dice,creature-sync,feuch-institute,bazar-du-feuch,poulpe-fiction,gerard-et-gerard
     steps:
-      - name: Check required deployment secrets
-        shell: bash
-        run: |
-          set -euo pipefail
-          test -n "$OCTOPUS_URL" || { echo "Missing repository secret OCTOPUS_URL"; exit 1; }
-          test -n "$PUBLISHER_ADAPTER_URL" || { echo "Missing repository secret PUBLISHER_ADAPTER_URL"; exit 1; }
-
       - name: Checkout Octopus Engine
         uses: actions/checkout@v4
+        with:
+          path: octopus
+
+      - name: Checkout Publisher
+        uses: actions/checkout@v4
+        with:
+          repository: benoitlub/blacklace-publisher-ai
+          path: publisher
 
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: 22
 
-      - name: Install and build
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.32.1
+
+      - name: Install and build Octopus
+        working-directory: octopus
         run: |
           npm install --no-audit --no-fund
           npm run build
 
-      - name: Check live services
+      - name: Install and build Publisher
+        working-directory: publisher
+        run: |
+          pnpm install --no-frozen-lockfile
+          pnpm --filter @workspace/api-server run build
+
+      - name: Start Octopus locally
+        working-directory: octopus
+        run: |
+          nohup npm start > ../octopus.log 2>&1 &
+          echo $! > ../octopus.pid
+
+      - name: Start Publisher locally
+        working-directory: publisher
+        run: |
+          nohup pnpm --filter @workspace/api-server run start > ../publisher.log 2>&1 &
+          echo $! > ../publisher.pid
+
+      - name: Wait for local services
         shell: bash
         run: |
           set -euo pipefail
-          curl --fail --silent --show-error "$OCTOPUS_URL/health" >/dev/null
-          if [ -n "${PUBLISHER_HEALTH_URL:-}" ]; then
-            curl --fail --silent --show-error "$PUBLISHER_HEALTH_URL" >/dev/null
-          fi
+          for attempt in $(seq 1 60); do
+            if curl --fail --silent "$OCTOPUS_URL/health" >/dev/null && curl --fail --silent "$PUBLISHER_URL/health" >/dev/null; then
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "Octopus or Publisher did not become healthy"
+          cat octopus.log || true
+          cat publisher.log || true
+          exit 1
 
-      - name: Register Publisher adapter in Octopus
+      - name: Register local Publisher adapter
         shell: bash
         run: |
           set -euo pipefail
@@ -60,24 +99,47 @@ jobs:
             -H "Content-Type: application/json" \
             --data "$(jq -n \
               --arg executeUrl "$PUBLISHER_ADAPTER_URL" \
-              --arg healthUrl "${PUBLISHER_HEALTH_URL:-}" \
-              '{id:"publisher",name:"Blacklace Publisher",version:"1",capabilities:["publisher.curation.run"],executeUrl:$executeUrl} + (if $healthUrl == "" then {} else {healthUrl:$healthUrl} end)')"
+              '{id:"publisher",name:"Blacklace Publisher",version:"github-actions",capabilities:["knowledge.search","copy.generate","content.article.write","content.social.write","landing.generate"],executeUrl:$executeUrl}')"
 
-      - name: Prepare due Publisher wake
+      - name: Prepare due curation wakes
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p .octopus
+          mkdir -p octopus/.octopus
           NOW="$(date -u +%Y-%m-%dT%H:%M:%S.000Z)"
-          jq -n \
-            --arg now "$NOW" \
-            --arg operationId "publisher-curation-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" \
-            '{version:1,wakes:[{id:"publisher-radar-default",source:"publisher",status:"scheduled",nextRunAt:$now,attempts:0,maxAttempts:3,createdAt:$now,updatedAt:$now,mission:{operationId:$operationId,title:"Publisher autonomous curation cycle",objective:"Run the authorized Publisher radar, comparison and knowledge-package curation cycle, then persist its result.",requiredCapabilities:["publisher.curation.run"],authorizedResources:[],context:{id:"publisher:default",label:"Publisher autonomous curation",metadata:{trigger:"github-actions",cycle:"radar",repository:"benoitlub/octopus-engine"}}}}]}' \
-            > "$OCTOPUS_WAKE_STORE"
+          IFS=',' read -ra SUBJECTS <<< "$PUBLISHER_CURATION_SUBJECTS"
+          WAKES='[]'
+          for subject in "${SUBJECTS[@]}"; do
+            subject="$(echo "$subject" | xargs)"
+            [ -n "$subject" ] || continue
+            operation="publisher-curation-${subject}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+            wake="$(jq -n \
+              --arg now "$NOW" \
+              --arg subject "$subject" \
+              --arg operation "$operation" \
+              '{id:("publisher-curation-"+$subject),source:"publisher",status:"scheduled",nextRunAt:$now,attempts:0,maxAttempts:3,createdAt:$now,updatedAt:$now,mission:{operationId:$operation,title:("Curate knowledge for "+$subject),objective:("Discover, compare, qualify and digest verified knowledge for "+$subject+" without producing public content."),requiredCapabilities:["knowledge.search"],authorizedResources:["notion-workspace"],context:{id:("publisher:"+$subject),label:$subject,metadata:{trigger:"github-actions",cycle:"curation",knowledgeSlug:$subject,parcelId:$subject}}}}')"
+            WAKES="$(jq --argjson wake "$wake" '. + [$wake]' <<< "$WAKES")"
+          done
+          jq -n --argjson wakes "$WAKES" '{version:1,wakes:$wakes}' > octopus/$OCTOPUS_WAKE_STORE
 
       - name: Dispatch through AutonomousRunner
+        working-directory: octopus
         run: npm run octopus:runner:once
 
-      - name: Show resulting wake state
+      - name: Build curation report
         if: always()
-        run: cat "$OCTOPUS_WAKE_STORE" || true
+        shell: bash
+        run: |
+          mkdir -p curation-report
+          cp octopus/$OCTOPUS_WAKE_STORE curation-report/wakes.json 2>/dev/null || true
+          cp octopus.log curation-report/octopus.log 2>/dev/null || true
+          cp publisher.log curation-report/publisher.log 2>/dev/null || true
+          jq '{version, summary:{total:(.wakes|length), completed:([.wakes[]|select(.status=="completed")]|length), failed:([.wakes[]|select(.status=="failed")]|length)}, wakes:[.wakes[]|{id,status,lastCompletedAt,lastError,lastResult}]}' octopus/$OCTOPUS_WAKE_STORE > curation-report/summary.json 2>/dev/null || true
+
+      - name: Upload curation report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: publisher-curation-${{ github.run_id }}
+          path: curation-report
+          retention-days: 30
