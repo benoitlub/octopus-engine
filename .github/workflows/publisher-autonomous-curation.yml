@@ -26,13 +26,27 @@ jobs:
     if: github.event_name != 'issues' || startsWith(github.event.issue.title, '[POULPE]')
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: publisher
+          POSTGRES_PASSWORD: publisher
+          POSTGRES_DB: publisher
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U publisher -d publisher"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
     env:
       OCTOPUS_URL: http://127.0.0.1:3000
       OCTOPUS_WAKE_STORE: .octopus/wakes.json
       PUBLISHER_URL: http://127.0.0.1:3100
       PUBLISHER_ADAPTER_URL: http://127.0.0.1:3100/api/octopus-adapter
       OCTOPUS_ENGINE_URL: http://127.0.0.1:3000
-      PORT: "3100"
+      DATABASE_URL: postgresql://publisher:publisher@127.0.0.1:5432/publisher
       KNOWLEDGE_CONNECTOR: notion
       NOTION_API_KEY: ${{ secrets.NOTION_API_KEY }}
       NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
@@ -80,13 +94,13 @@ jobs:
       - name: Start Octopus locally
         working-directory: octopus
         run: |
-          nohup npm start > ../octopus.log 2>&1 &
+          nohup env PORT=3000 npm start > ../octopus.log 2>&1 &
           echo $! > ../octopus.pid
 
       - name: Start Publisher locally
         working-directory: publisher
         run: |
-          nohup pnpm --filter @workspace/api-server run start > ../publisher.log 2>&1 &
+          nohup env PORT=3100 DATABASE_URL="$DATABASE_URL" pnpm --filter @workspace/api-server run start > ../publisher.log 2>&1 &
           echo $! > ../publisher.pid
 
       - name: Wait for local services
