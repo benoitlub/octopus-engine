@@ -18,8 +18,11 @@
     "test": "vitest run src/__tests__",
     "typecheck": "tsc --noEmit",
     "octopus:start": "tsx src/cli/octopus-start.ts",
+    "octopus:runner": "tsx src/cli/octopus-runner.ts",
+    "octopus:runner:once": "tsx src/cli/octopus-runner.ts --once",
     "dev": "tsx src/server.ts",
-    "start": "node dist/server.js"
+    "start": "node dist/server.js",
+    "start:runner": "node dist/cli/octopus-runner.js"
   },
   "dependencies": {
     "@hono/node-server": "^1.14.0",
