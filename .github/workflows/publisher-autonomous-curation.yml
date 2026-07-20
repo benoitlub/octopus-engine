@@ -1,0 +1,83 @@
+name: Publisher autonomous curation
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "17,47 * * * *"
+
+concurrency:
+  group: publisher-autonomous-curation
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  curate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      OCTOPUS_URL: ${{ secrets.OCTOPUS_URL }}
+      PUBLISHER_ADAPTER_URL: ${{ secrets.PUBLISHER_ADAPTER_URL }}
+      PUBLISHER_HEALTH_URL: ${{ secrets.PUBLISHER_HEALTH_URL }}
+      OCTOPUS_WAKE_STORE: .octopus/wakes.json
+    steps:
+      - name: Check required deployment secrets
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$OCTOPUS_URL" || { echo "Missing repository secret OCTOPUS_URL"; exit 1; }
+          test -n "$PUBLISHER_ADAPTER_URL" || { echo "Missing repository secret PUBLISHER_ADAPTER_URL"; exit 1; }
+
+      - name: Checkout Octopus Engine
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install and build
+        run: |
+          npm install --no-audit --no-fund
+          npm run build
+
+      - name: Check live services
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error "$OCTOPUS_URL/health" >/dev/null
+          if [ -n "${PUBLISHER_HEALTH_URL:-}" ]; then
+            curl --fail --silent --show-error "$PUBLISHER_HEALTH_URL" >/dev/null
+          fi
+
+      - name: Register Publisher adapter in Octopus
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error \
+            -X POST "$OCTOPUS_URL/adapters/register" \
+            -H "Content-Type: application/json" \
+            --data "$(jq -n \
+              --arg executeUrl "$PUBLISHER_ADAPTER_URL" \
+              --arg healthUrl "${PUBLISHER_HEALTH_URL:-}" \
+              '{id:"publisher",name:"Blacklace Publisher",version:"1",capabilities:["publisher.curation.run"],executeUrl:$executeUrl} + (if $healthUrl == "" then {} else {healthUrl:$healthUrl} end)')"
+
+      - name: Prepare due Publisher wake
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p .octopus
+          NOW="$(date -u +%Y-%m-%dT%H:%M:%S.000Z)"
+          jq -n \
+            --arg now "$NOW" \
+            --arg operationId "publisher-curation-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" \
+            '{version:1,wakes:[{id:"publisher-radar-default",source:"publisher",status:"scheduled",nextRunAt:$now,attempts:0,maxAttempts:3,createdAt:$now,updatedAt:$now,mission:{operationId:$operationId,title:"Publisher autonomous curation cycle",objective:"Run the authorized Publisher radar, comparison and knowledge-package curation cycle, then persist its result.",requiredCapabilities:["publisher.curation.run"],authorizedResources:[],context:{id:"publisher:default",label:"Publisher autonomous curation",metadata:{trigger:"github-actions",cycle:"radar",repository:"benoitlub/octopus-engine"}}}}]}' \
+            > "$OCTOPUS_WAKE_STORE"
+
+      - name: Dispatch through AutonomousRunner
+        run: npm run octopus:runner:once
+
+      - name: Show resulting wake state
+        if: always()
+        run: cat "$OCTOPUS_WAKE_STORE" || true
