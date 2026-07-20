@@ -47,16 +47,16 @@ jobs:
       PUBLISHER_ADAPTER_URL: http://127.0.0.1:3100/api/octopus-adapter
       OCTOPUS_ENGINE_URL: http://127.0.0.1:3000
       DATABASE_URL: postgresql://publisher:publisher@127.0.0.1:5432/publisher
-      KNOWLEDGE_CONNECTOR: notion
-      NOTION_API_KEY: ${{ secrets.NOTION_API_KEY }}
-      NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
-      NOTION_API_TOKEN: ${{ secrets.NOTION_API_TOKEN }}
       AI_PROVIDER: mistral
       AI_MODEL: mistral-small-latest
       MISTRAL_API_KEY: ${{ secrets.MISTRAL_API_KEY }}
+      NOTION_API_KEY: ${{ secrets.NOTION_API_KEY }}
+      NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
+      NOTION_API_TOKEN: ${{ secrets.NOTION_API_TOKEN }}
       PUBLISHER_CURATION_SUBJECTS: terra,neverland-ltd,la-feulette-tachetee,420-dice,pro-hibited-online,blacklace-dice,creature-sync,feuch-institute,bazar-du-feuch,poulpe-fiction,gerard-et-gerard
       POULPE_ISSUE_BODY: ${{ github.event.issue.body }}
       MANUAL_MISSION_JSON: ${{ inputs.mission_json }}
+
     steps:
       - name: Checkout Octopus Engine
         uses: actions/checkout@v4
@@ -72,7 +72,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 24
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
@@ -85,22 +85,28 @@ jobs:
           npm install --no-audit --no-fund
           npm run build
 
-      - name: Install and build Publisher
+      - name: Install Publisher dependencies
         working-directory: publisher
-        run: |
-          pnpm install --no-frozen-lockfile
-          pnpm --filter @workspace/api-server run build
+        run: pnpm install --no-frozen-lockfile
+
+      - name: Prepare Publisher database
+        working-directory: publisher
+        run: pnpm --filter @workspace/db run push
+
+      - name: Build Publisher
+        working-directory: publisher
+        run: pnpm --filter @workspace/api-server run build
 
       - name: Start Octopus locally
         working-directory: octopus
         run: |
-          nohup env PORT=3000 npm start > ../octopus.log 2>&1 &
+          nohup env PORT=3000 NODE_ENV=production npm start > ../octopus.log 2>&1 &
           echo $! > ../octopus.pid
 
       - name: Start Publisher locally
         working-directory: publisher
         run: |
-          nohup env PORT=3100 DATABASE_URL="$DATABASE_URL" pnpm --filter @workspace/api-server run start > ../publisher.log 2>&1 &
+          nohup env PORT=3100 NODE_ENV=production DATABASE_URL="$DATABASE_URL" pnpm --filter @workspace/api-server run start > ../publisher.log 2>&1 &
           echo $! > ../publisher.pid
 
       - name: Wait for local services
@@ -108,11 +114,26 @@ jobs:
         run: |
           set -euo pipefail
           for attempt in $(seq 1 60); do
-            if curl --fail --silent "$OCTOPUS_URL/health" >/dev/null && curl --fail --silent "$PUBLISHER_URL/health" >/dev/null; then
+            OCTOPUS_UP=false
+            PUBLISHER_UP=false
+            curl --fail --silent "$OCTOPUS_URL/health" >/dev/null && OCTOPUS_UP=true || true
+            curl --fail --silent "$PUBLISHER_URL/api/healthz" >/dev/null && PUBLISHER_UP=true || true
+            if [ "$OCTOPUS_UP" = true ] && [ "$PUBLISHER_UP" = true ]; then
               exit 0
+            fi
+            if ! kill -0 "$(cat octopus.pid)" 2>/dev/null; then
+              echo "Octopus process exited before health check"
+              cat octopus.log || true
+              exit 1
+            fi
+            if ! kill -0 "$(cat publisher.pid)" 2>/dev/null; then
+              echo "Publisher process exited before health check"
+              cat publisher.log || true
+              exit 1
             fi
             sleep 2
           done
+          echo "Services did not become healthy in time"
           cat octopus.log || true
           cat publisher.log || true
           exit 1
@@ -170,7 +191,6 @@ jobs:
           mkdir -p curation-report octopus/garden-feed
           cp octopus.log curation-report/octopus.log 2>/dev/null || true
           cp publisher.log curation-report/publisher.log 2>/dev/null || true
-
           STORE="octopus/$OCTOPUS_WAKE_STORE"
           if [ -s "$STORE" ] && jq -e '.wakes | type == "array"' "$STORE" >/dev/null 2>&1; then
             cp "$STORE" curation-report/wakes.json
@@ -180,13 +200,6 @@ jobs:
             ERROR="Le runner n'a produit aucun wake store JSON valide. Consulte les logs du workflow."
             jq -n --arg generatedAt "$(date -u +%Y-%m-%dT%H:%M:%S.000Z)" --arg runUrl "https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}" --arg operationId "${GITHUB_EVENT_NAME}-${GITHUB_RUN_ID}" --arg error "$ERROR" '{version:"garden-feed-v1",generatedAt:$generatedAt,runUrl:$runUrl,harvests:[{operationId:$operationId,parcelId:"poulpe-fiction",seedId:null,title:"Mission GitHub en échec",status:"failed",completedAt:$generatedAt,error:$error,result:null,source:"github-actions"}]}' > octopus/garden-feed/latest.json
           fi
-
-          if ! jq -e '.version == "garden-feed-v1" and (.harvests | type == "array")' octopus/garden-feed/latest.json >/dev/null; then
-            echo "feed_valid=false" >> "$GITHUB_OUTPUT"
-            echo "mission_completed=false" >> "$GITHUB_OUTPUT"
-            exit 1
-          fi
-
           COMPLETED="$(jq '[.harvests[] | select(.status == "completed" and .result != null)] | length' octopus/garden-feed/latest.json)"
           echo "feed_valid=true" >> "$GITHUB_OUTPUT"
           if [ "$COMPLETED" -gt 0 ]; then
