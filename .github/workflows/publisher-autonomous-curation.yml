@@ -8,7 +8,7 @@ on:
         required: false
         type: string
   issues:
-    types: [opened]
+    types: [opened, reopened]
   schedule:
     - cron: "17,47 * * * *"
 
@@ -143,22 +143,46 @@ jobs:
           fi
 
       - name: Dispatch through AutonomousRunner
+        id: dispatch
         working-directory: octopus
         run: npm run octopus:runner:once
 
       - name: Build reports and public Garden feed
+        id: feed
         if: always()
         shell: bash
         run: |
+          set -u
           mkdir -p curation-report octopus/garden-feed
-          cp octopus/$OCTOPUS_WAKE_STORE curation-report/wakes.json 2>/dev/null || true
           cp octopus.log curation-report/octopus.log 2>/dev/null || true
           cp publisher.log curation-report/publisher.log 2>/dev/null || true
-          jq '{version, summary:{total:(.wakes|length), completed:([.wakes[]|select(.status=="completed")]|length), failed:([.wakes[]|select(.status=="failed")]|length)}, wakes:[.wakes[]|{id,status,lastCompletedAt,lastError,lastResult}]}' octopus/$OCTOPUS_WAKE_STORE > curation-report/summary.json 2>/dev/null || true
-          jq --arg generatedAt "$(date -u +%Y-%m-%dT%H:%M:%S.000Z)" --arg runUrl "https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}" '{version:"garden-feed-v1",generatedAt:$generatedAt,runUrl:$runUrl,harvests:[.wakes[]|{operationId:(.mission.operationId // .lastResult.operationId),parcelId:(.mission.context.metadata.parcelId // .mission.context.id),seedId:(.mission.context.metadata.seedId // .mission.context.metadata.knowledgeSlug),title:(.mission.title // "Récolte"),status,completedAt:lastCompletedAt,error:lastError,result:lastResult,source:"github-actions"}]}' octopus/$OCTOPUS_WAKE_STORE > octopus/garden-feed/latest.json
+
+          STORE="octopus/$OCTOPUS_WAKE_STORE"
+          if [ -s "$STORE" ] && jq -e '.wakes | type == "array"' "$STORE" >/dev/null 2>&1; then
+            cp "$STORE" curation-report/wakes.json
+            jq '{version,summary:{total:(.wakes|length),completed:([.wakes[]|select(.status=="completed")]|length),failed:([.wakes[]|select(.status=="failed")]|length)},wakes:[.wakes[]|{id,status,lastCompletedAt,lastError,lastResult}]}' "$STORE" > curation-report/summary.json
+            jq --arg generatedAt "$(date -u +%Y-%m-%dT%H:%M:%S.000Z)" --arg runUrl "https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}" '{version:"garden-feed-v1",generatedAt:$generatedAt,runUrl:$runUrl,harvests:[.wakes[]|{operationId:(.mission.operationId // .lastResult.operationId),parcelId:(.mission.context.metadata.parcelId // .mission.context.id),seedId:(.mission.context.metadata.seedId // .mission.context.metadata.knowledgeSlug),title:(.mission.title // "Récolte"),status,completedAt:lastCompletedAt,error:lastError,result:lastResult,source:"github-actions"}]}' "$STORE" > octopus/garden-feed/latest.json
+          else
+            ERROR="Le runner n'a produit aucun wake store JSON valide. Consulte les logs du workflow."
+            jq -n --arg generatedAt "$(date -u +%Y-%m-%dT%H:%M:%S.000Z)" --arg runUrl "https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}" --arg operationId "${GITHUB_EVENT_NAME}-${GITHUB_RUN_ID}" --arg error "$ERROR" '{version:"garden-feed-v1",generatedAt:$generatedAt,runUrl:$runUrl,harvests:[{operationId:$operationId,parcelId:"poulpe-fiction",seedId:null,title:"Mission GitHub en échec",status:"failed",completedAt:$generatedAt,error:$error,result:null,source:"github-actions"}]}' > octopus/garden-feed/latest.json
+          fi
+
+          if ! jq -e '.version == "garden-feed-v1" and (.harvests | type == "array")' octopus/garden-feed/latest.json >/dev/null; then
+            echo "feed_valid=false" >> "$GITHUB_OUTPUT"
+            echo "mission_completed=false" >> "$GITHUB_OUTPUT"
+            exit 1
+          fi
+
+          COMPLETED="$(jq '[.harvests[] | select(.status == "completed" and .result != null)] | length' octopus/garden-feed/latest.json)"
+          echo "feed_valid=true" >> "$GITHUB_OUTPUT"
+          if [ "$COMPLETED" -gt 0 ]; then
+            echo "mission_completed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "mission_completed=false" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Publish Garden feed to main
-        if: always()
+        if: always() && steps.feed.outputs.feed_valid == 'true'
         working-directory: octopus
         shell: bash
         run: |
@@ -170,13 +194,20 @@ jobs:
           git pull --rebase origin main
           git push origin HEAD:main
 
-      - name: Close processed Poulpe issue
-        if: always() && github.event_name == 'issues'
+      - name: Close successful Poulpe issue
+        if: github.event_name == 'issues' && steps.dispatch.outcome == 'success' && steps.feed.outputs.mission_completed == 'true'
         uses: actions/github-script@v7
         with:
           script: |
-            await github.rest.issues.createComment({owner: context.repo.owner, repo: context.repo.repo, issue_number: context.issue.number, body: '🐙 Mission traitée par Octopus + Publisher. Le résultat est publié dans `garden-feed/latest.json`.'});
+            await github.rest.issues.createComment({owner: context.repo.owner, repo: context.repo.repo, issue_number: context.issue.number, body: '🐙 Mission terminée par Octopus + Publisher. La récolte valide est publiée dans `garden-feed/latest.json`.'});
             await github.rest.issues.update({owner: context.repo.owner, repo: context.repo.repo, issue_number: context.issue.number, state: 'closed'});
+
+      - name: Report failed Poulpe issue
+        if: always() && github.event_name == 'issues' && !(steps.dispatch.outcome == 'success' && steps.feed.outputs.mission_completed == 'true')
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.createComment({owner: context.repo.owner, repo: context.repo.repo, issue_number: context.issue.number, body: '⚠️ La mission n’a pas produit de récolte valide. L’issue reste ouverte. Consulte le workflow et son artefact de diagnostic.'});
 
       - name: Upload curation report
         if: always()
