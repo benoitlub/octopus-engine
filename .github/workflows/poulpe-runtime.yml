@@ -1,0 +1,222 @@
+name: Poulpe runtime
+
+on:
+  workflow_dispatch:
+    inputs:
+      mission_json:
+        description: Mission Poulpe au format JSON
+        required: true
+        type: string
+  issues:
+    types: [opened, reopened]
+
+concurrency:
+  group: poulpe-runtime
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  actions: write
+  issues: write
+
+jobs:
+  cultivate:
+    if: github.event_name != 'issues' || startsWith(github.event.issue.title, '[POULPE]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: publisher
+          POSTGRES_PASSWORD: publisher
+          POSTGRES_DB: publisher
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U publisher -d publisher"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      OCTOPUS_URL: http://127.0.0.1:3000
+      OCTOPUS_WAKE_STORE: .octopus/wakes.json
+      PUBLISHER_URL: http://127.0.0.1:3100
+      PUBLISHER_ADAPTER_URL: http://127.0.0.1:3100/api/octopus-adapter
+      OCTOPUS_ENGINE_URL: http://127.0.0.1:3000
+      DATABASE_URL: postgresql://publisher:publisher@127.0.0.1:5432/publisher
+      AI_PROVIDER: mistral
+      AI_MODEL: ${{ secrets.AI_MODEL }}
+      MISTRAL_API_KEY: ${{ secrets.MISTRAL_API_KEY }}
+      COMPOSIO_API_KEY: ${{ secrets.COMPOSIO_API_KEY }}
+      NOTION_API_KEY: ${{ secrets.NOTION_API_KEY }}
+      NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
+      NOTION_API_TOKEN: ${{ secrets.NOTION_API_TOKEN }}
+      NOTION_PAGE_ID: ${{ secrets.NOTION_PAGE_ID }}
+      POULPE_ISSUE_BODY: ${{ github.event.issue.body }}
+      MANUAL_MISSION_JSON: ${{ inputs.mission_json }}
+
+    steps:
+      - name: Checkout Octopus Engine
+        uses: actions/checkout@v4
+        with:
+          path: octopus
+
+      - name: Checkout Publisher
+        uses: actions/checkout@v4
+        with:
+          repository: benoitlub/blacklace-publisher-ai
+          path: publisher
+
+      - name: Check runtime secrets
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$MISTRAL_API_KEY" || { echo "Missing MISTRAL_API_KEY"; exit 1; }
+          test -n "$NOTION_API_KEY" || test -n "$NOTION_TOKEN" || test -n "$NOTION_API_TOKEN" || { echo "Missing NOTION_API_KEY"; exit 1; }
+          test -n "$NOTION_PAGE_ID" || { echo "Missing NOTION_PAGE_ID"; exit 1; }
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.32.1
+
+      - name: Install and build Octopus
+        working-directory: octopus
+        run: |
+          npm install --no-audit --no-fund
+          npm run build
+
+      - name: Install Publisher dependencies
+        working-directory: publisher
+        run: pnpm install --no-frozen-lockfile
+
+      - name: Prepare Publisher database
+        working-directory: publisher
+        run: pnpm --filter @workspace/db run push
+
+      - name: Build Publisher
+        working-directory: publisher
+        run: pnpm --filter @workspace/api-server run build
+
+      - name: Start Octopus locally
+        working-directory: octopus
+        run: |
+          nohup env PORT=3000 NODE_ENV=production npm start > ../octopus.log 2>&1 &
+          echo $! > ../octopus.pid
+
+      - name: Start Publisher locally
+        working-directory: publisher
+        run: |
+          nohup env PORT=3100 NODE_ENV=production DATABASE_URL="$DATABASE_URL" pnpm --filter @workspace/api-server run start > ../publisher.log 2>&1 &
+          echo $! > ../publisher.pid
+
+      - name: Wait for local services
+        shell: bash
+        run: |
+          set -euo pipefail
+          for attempt in $(seq 1 60); do
+            OCTOPUS_UP=false
+            PUBLISHER_UP=false
+            curl --fail --silent "$OCTOPUS_URL/health" >/dev/null && OCTOPUS_UP=true || true
+            curl --fail --silent "$PUBLISHER_URL/api/healthz" >/dev/null && PUBLISHER_UP=true || true
+            if [ "$OCTOPUS_UP" = true ] && [ "$PUBLISHER_UP" = true ]; then exit 0; fi
+            if ! kill -0 "$(cat octopus.pid)" 2>/dev/null; then cat octopus.log || true; exit 1; fi
+            if ! kill -0 "$(cat publisher.pid)" 2>/dev/null; then cat publisher.log || true; exit 1; fi
+            sleep 2
+          done
+          cat octopus.log || true
+          cat publisher.log || true
+          exit 1
+
+      - name: Register local Publisher adapter
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error \
+            -X POST "$OCTOPUS_URL/adapters/register" \
+            -H "Content-Type: application/json" \
+            --data "$(jq -n --arg executeUrl "$PUBLISHER_ADAPTER_URL" '{id:"publisher",name:"Blacklace Publisher",version:"github-actions",capabilities:["knowledge.search","copy.generate","content.article.write","content.social.write","landing.generate"],executeUrl:$executeUrl}')"
+
+      - name: Prepare mission wake
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p octopus/.octopus
+          NOW="$(date -u +%Y-%m-%dT%H:%M:%S.000Z)"
+          if [ "$GITHUB_EVENT_NAME" = "issues" ]; then REQUEST="$POULPE_ISSUE_BODY"; else REQUEST="$MANUAL_MISSION_JSON"; fi
+          echo "$REQUEST" | jq -e 'type == "object" and .operationId and .requiredCapabilities and .context' >/dev/null
+          jq -n --arg now "$NOW" --argjson mission "$REQUEST" '{version:1,wakes:[{id:("poulpe-"+$mission.operationId),source:"poulpe-fiction",status:"scheduled",nextRunAt:$now,attempts:0,maxAttempts:3,createdAt:$now,updatedAt:$now,mission:$mission}]}' > octopus/$OCTOPUS_WAKE_STORE
+
+      - name: Dispatch through AutonomousRunner
+        id: dispatch
+        working-directory: octopus
+        run: npm run octopus:runner:once
+
+      - name: Publish editable harvest to Notion
+        id: notion
+        working-directory: octopus
+        run: node scripts/publish-notion-harvests.mjs
+
+      - name: Build public Garden feed
+        id: feed
+        if: always()
+        shell: bash
+        run: |
+          set -u
+          mkdir -p curation-report octopus/garden-feed
+          cp octopus.log curation-report/octopus.log 2>/dev/null || true
+          cp publisher.log curation-report/publisher.log 2>/dev/null || true
+          STORE="octopus/$OCTOPUS_WAKE_STORE"
+          if [ -s "$STORE" ] && jq -e '.wakes | type == "array"' "$STORE" >/dev/null 2>&1; then
+            cp "$STORE" curation-report/wakes.json
+            jq '{version,summary:{total:(.wakes|length),completed:([.wakes[]|select(.status=="completed")]|length),failed:([.wakes[]|select(.status=="failed")]|length)},wakes:[.wakes[]|{id,status,lastCompletedAt,lastError,lastResult}]}' "$STORE" > curation-report/summary.json
+            jq --arg generatedAt "$(date -u +%Y-%m-%dT%H:%M:%S.000Z)" --arg runUrl "https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}" '{version:"garden-feed-v1",generatedAt:$generatedAt,runUrl:$runUrl,harvests:[.wakes[]|{operationId:(.mission.operationId // .lastResult.operationId),parcelId:(.mission.context.metadata.parcelId // .mission.context.id),seedId:(.mission.context.metadata.seedId // .mission.context.metadata.knowledgeSlug),title:(.mission.title // "Récolte"),status,completedAt:lastCompletedAt,error:lastError,result:lastResult,notionPageId:(.lastResult.notionPageId // null),notionUrl:(.lastResult.notionUrl // null),editorialSource:(.lastResult.editorialSource // null),source:"github-actions"}]}' "$STORE" > octopus/garden-feed/latest.json
+          else
+            ERROR="Le runner n'a produit aucun wake store JSON valide."
+            jq -n --arg generatedAt "$(date -u +%Y-%m-%dT%H:%M:%S.000Z)" --arg runUrl "https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}" --arg operationId "${GITHUB_EVENT_NAME}-${GITHUB_RUN_ID}" --arg error "$ERROR" '{version:"garden-feed-v1",generatedAt:$generatedAt,runUrl:$runUrl,harvests:[{operationId:$operationId,parcelId:"poulpe-fiction",seedId:null,title:"Mission GitHub en échec",status:"failed",completedAt:$generatedAt,error:$error,result:null,source:"github-actions"}]}' > octopus/garden-feed/latest.json
+          fi
+          COMPLETED="$(jq '[.harvests[] | select(.status == "completed" and .result != null and .notionUrl != null)] | length' octopus/garden-feed/latest.json)"
+          echo "feed_valid=true" >> "$GITHUB_OUTPUT"
+          if [ "$COMPLETED" -gt 0 ]; then echo "mission_completed=true" >> "$GITHUB_OUTPUT"; else echo "mission_completed=false" >> "$GITHUB_OUTPUT"; fi
+
+      - name: Publish Garden feed to main
+        if: always() && steps.feed.outputs.feed_valid == 'true'
+        working-directory: octopus
+        shell: bash
+        run: |
+          git config user.name "Gerard GitHub Runner"
+          git config user.email "actions@github.com"
+          git add garden-feed/latest.json
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "garden: publish latest Poulpe harvest feed"
+          git pull --rebase origin main
+          git push origin HEAD:main
+
+      - name: Close successful Poulpe issue
+        if: github.event_name == 'issues' && steps.dispatch.outcome == 'success' && steps.notion.outcome == 'success' && steps.feed.outputs.mission_completed == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.createComment({owner: context.repo.owner, repo: context.repo.repo, issue_number: context.issue.number, body: '🌾 Mission terminée. La récolte éditable Notion et le Garden Feed sont prêts.'});
+            await github.rest.issues.update({owner: context.repo.owner, repo: context.repo.repo, issue_number: context.issue.number, state: 'closed'});
+
+      - name: Report failed Poulpe issue
+        if: always() && github.event_name == 'issues' && !(steps.dispatch.outcome == 'success' && steps.notion.outcome == 'success' && steps.feed.outputs.mission_completed == 'true')
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.createComment({owner: context.repo.owner, repo: context.repo.repo, issue_number: context.issue.number, body: '⚠️ La mission n’a pas produit de récolte Notion valide. L’issue reste ouverte.'});
+
+      - name: Upload runtime report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: poulpe-runtime-${{ github.run_id }}
+          path: curation-report
+          retention-days: 30
