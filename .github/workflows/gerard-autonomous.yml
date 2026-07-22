@@ -3,20 +3,21 @@ name: Gerard autonomous loop
 on:
   schedule:
     - cron: "17 */6 * * *"
-  workflow_dispatch:
 
 concurrency:
   group: gerard-autonomous-loop
   cancel-in-progress: false
 
 permissions:
-  contents: read
-  actions: write
+  contents: write
 
 jobs:
   decide:
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    outputs:
+      should_run: ${{ steps.decision.outputs.should_run }}
+      mission_json: ${{ steps.mission.outputs.mission }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -83,16 +84,14 @@ jobs:
             }')"
           echo "mission=$MISSION" >> "$GITHUB_OUTPUT"
 
-      - name: Start Poulpe runtime
-        if: steps.decision.outputs.should_run == 'true'
-        env:
-          GH_TOKEN: ${{ github.token }}
-          MISSION_JSON: ${{ steps.mission.outputs.mission }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          gh workflow run poulpe-runtime.yml --ref main -f mission_json="$MISSION_JSON"
-
       - name: Record no-op decision
         if: steps.decision.outputs.should_run != 'true'
         run: echo "No mission started: ${{ steps.decision.outputs.reason }}"
+
+  cultivate:
+    needs: decide
+    if: needs.decide.outputs.should_run == 'true'
+    uses: ./.github/workflows/poulpe-runtime.yml
+    with:
+      mission_json: ${{ needs.decide.outputs.mission_json }}
+    secrets: inherit
