@@ -1,0 +1,98 @@
+name: Gerard autonomous loop
+
+on:
+  schedule:
+    - cron: "17 */6 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: gerard-autonomous-loop
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  actions: write
+
+jobs:
+  decide:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Decide whether a new harvest is needed
+        id: decision
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          FEED="garden-feed/latest.json"
+          NOW_EPOCH="$(date -u +%s)"
+          MAX_AGE_SECONDS=$((24 * 60 * 60))
+          SHOULD_RUN=true
+          REASON="no previous successful harvest"
+
+          if [ -s "$FEED" ] && jq -e '.harvests | type == "array"' "$FEED" >/dev/null 2>&1; then
+            LAST_COMPLETED="$(jq -r '[.harvests[] | select(.status == "completed") | .completedAt] | map(select(. != null)) | sort | last // empty' "$FEED")"
+            if [ -n "$LAST_COMPLETED" ]; then
+              LAST_EPOCH="$(date -u -d "$LAST_COMPLETED" +%s 2>/dev/null || echo 0)"
+              AGE=$((NOW_EPOCH - LAST_EPOCH))
+              if [ "$LAST_EPOCH" -gt 0 ] && [ "$AGE" -lt "$MAX_AGE_SECONDS" ]; then
+                SHOULD_RUN=false
+                REASON="a successful harvest already exists within the last 24 hours"
+              else
+                REASON="the latest successful harvest is older than 24 hours"
+              fi
+            fi
+          fi
+
+          echo "should_run=$SHOULD_RUN" >> "$GITHUB_OUTPUT"
+          echo "reason=$REASON" >> "$GITHUB_OUTPUT"
+          echo "Gerard decision: $SHOULD_RUN — $REASON"
+
+      - name: Build autonomous mission
+        if: steps.decision.outputs.should_run == 'true'
+        id: mission
+        shell: bash
+        run: |
+          set -euo pipefail
+          OPERATION_ID="gerard-$(date -u +%Y%m%dT%H%M%SZ)"
+          MISSION="$(jq -cn \
+            --arg operationId "$OPERATION_ID" \
+            --arg decidedAt "$(date -u +%Y-%m-%dT%H:%M:%S.000Z)" \
+            --arg reason "${{ steps.decision.outputs.reason }}" \
+            '{
+              operationId: $operationId,
+              title: "Récolte éditoriale autonome de Gérard",
+              requiredCapabilities: ["knowledge.search", "content.article.write"],
+              context: {
+                id: "poulpe-fiction",
+                objective: "Choisir et produire de manière autonome la prochaine récolte éditoriale utile à partir des connaissances disponibles, sans sollicitation humaine.",
+                constraints: [
+                  "Ne pas inventer de source",
+                  "Produire un résultat éditable dans Notion",
+                  "Éviter de répéter une récolte récente"
+                ],
+                metadata: {
+                  source: "gerard-autonomous-loop",
+                  decidedAt: $decidedAt,
+                  decisionReason: $reason
+                }
+              }
+            }')"
+          echo "mission=$MISSION" >> "$GITHUB_OUTPUT"
+
+      - name: Start Poulpe runtime
+        if: steps.decision.outputs.should_run == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          MISSION_JSON: ${{ steps.mission.outputs.mission }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh workflow run poulpe-runtime.yml --ref main -f mission_json="$MISSION_JSON"
+
+      - name: Record no-op decision
+        if: steps.decision.outputs.should_run != 'true'
+        run: echo "No mission started: ${{ steps.decision.outputs.reason }}"
