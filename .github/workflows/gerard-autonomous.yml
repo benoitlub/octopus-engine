@@ -3,6 +3,13 @@ name: Gerard autonomous loop
 on:
   schedule:
     - cron: "17 */6 * * *"
+  workflow_dispatch:
+    inputs:
+      force:
+        description: Lancer une récolte même si une récolte récente existe
+        required: false
+        default: true
+        type: boolean
 
 concurrency:
   group: gerard-autonomous-loop
@@ -25,6 +32,8 @@ jobs:
       - name: Decide whether a new harvest is needed
         id: decision
         shell: bash
+        env:
+          FORCE_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.force || false }}
         run: |
           set -euo pipefail
 
@@ -34,7 +43,10 @@ jobs:
           SHOULD_RUN=true
           REASON="no previous successful harvest"
 
-          if [ -s "$FEED" ] && jq -e '.harvests | type == "array"' "$FEED" >/dev/null 2>&1; then
+          if [ "$FORCE_RUN" = "true" ]; then
+            SHOULD_RUN=true
+            REASON="manual launch requested"
+          elif [ -s "$FEED" ] && jq -e '.harvests | type == "array"' "$FEED" >/dev/null 2>&1; then
             LAST_COMPLETED="$(jq -r '[.harvests[] | select(.status == "completed") | .completedAt] | map(select(. != null)) | sort | last // empty' "$FEED")"
             if [ -n "$LAST_COMPLETED" ]; then
               LAST_EPOCH="$(date -u -d "$LAST_COMPLETED" +%s 2>/dev/null || echo 0)"
