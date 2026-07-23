@@ -7,6 +7,14 @@ on:
         description: Mission Poulpe au format JSON
         required: true
         type: string
+  workflow_dispatch:
+    inputs:
+      mission_json:
+        description: Mission Poulpe au format JSON
+        required: true
+        type: string
+  issues:
+    types: [opened, reopened]
 
 concurrency:
   group: poulpe-runtime
@@ -14,9 +22,11 @@ concurrency:
 
 permissions:
   contents: write
+  issues: write
 
 jobs:
   cultivate:
+    if: github.event_name != 'issues' || startsWith(github.event.issue.title, '[POULPE]')
     runs-on: ubuntu-latest
     timeout-minutes: 20
     services:
@@ -48,7 +58,8 @@ jobs:
       NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
       NOTION_API_TOKEN: ${{ secrets.NOTION_API_TOKEN }}
       NOTION_PAGE_ID: ${{ secrets.NOTION_PAGE_ID }}
-      MISSION_JSON: ${{ inputs.mission_json }}
+      POULPE_ISSUE_BODY: ${{ github.event.issue.body }}
+      MANUAL_MISSION_JSON: ${{ inputs.mission_json }}
 
     steps:
       - name: Checkout Octopus Engine
@@ -143,8 +154,9 @@ jobs:
           set -euo pipefail
           mkdir -p octopus/.octopus
           NOW="$(date -u +%Y-%m-%dT%H:%M:%S.000Z)"
-          echo "$MISSION_JSON" | jq -e 'type == "object" and .operationId and .requiredCapabilities and .context' >/dev/null
-          jq -n --arg now "$NOW" --argjson mission "$MISSION_JSON" '{version:1,wakes:[{id:("poulpe-"+$mission.operationId),source:"poulpe-fiction",status:"scheduled",nextRunAt:$now,attempts:0,maxAttempts:3,createdAt:$now,updatedAt:$now,mission:$mission}]}' > octopus/$OCTOPUS_WAKE_STORE
+          if [ "$GITHUB_EVENT_NAME" = "issues" ]; then REQUEST="$POULPE_ISSUE_BODY"; else REQUEST="$MANUAL_MISSION_JSON"; fi
+          echo "$REQUEST" | jq -e 'type == "object" and .operationId and .requiredCapabilities and .context' >/dev/null
+          jq -n --arg now "$NOW" --argjson mission "$REQUEST" '{version:1,wakes:[{id:("poulpe-"+$mission.operationId),source:"poulpe-fiction",status:"scheduled",nextRunAt:$now,attempts:0,maxAttempts:3,createdAt:$now,updatedAt:$now,mission:$mission}]}' > octopus/$OCTOPUS_WAKE_STORE
 
       - name: Dispatch through AutonomousRunner
         id: dispatch
@@ -172,7 +184,7 @@ jobs:
             jq --arg generatedAt "$(date -u +%Y-%m-%dT%H:%M:%S.000Z)" --arg runUrl "https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}" '{version:"garden-feed-v1",generatedAt:$generatedAt,runUrl:$runUrl,harvests:[.wakes[]|{operationId:(.mission.operationId // .lastResult.operationId),parcelId:(.mission.context.metadata.parcelId // .mission.context.id),seedId:(.mission.context.metadata.seedId // .mission.context.metadata.knowledgeSlug),title:(.mission.title // "Récolte"),status,completedAt:lastCompletedAt,error:lastError,result:lastResult,notionPageId:(.lastResult.notionPageId // null),notionUrl:(.lastResult.notionUrl // null),editorialSource:(.lastResult.editorialSource // null),source:"github-actions"}]}' "$STORE" > octopus/garden-feed/latest.json
           else
             ERROR="Le runner n'a produit aucun wake store JSON valide."
-            jq -n --arg generatedAt "$(date -u +%Y-%m-%dT%H:%M:%S.000Z)" --arg runUrl "https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}" --arg operationId "autonomous-${GITHUB_RUN_ID}" --arg error "$ERROR" '{version:"garden-feed-v1",generatedAt:$generatedAt,runUrl:$runUrl,harvests:[{operationId:$operationId,parcelId:"poulpe-fiction",seedId:null,title:"Mission GitHub en échec",status:"failed",completedAt:$generatedAt,error:$error,result:null,source:"github-actions"}]}' > octopus/garden-feed/latest.json
+            jq -n --arg generatedAt "$(date -u +%Y-%m-%dT%H:%M:%S.000Z)" --arg runUrl "https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}" --arg operationId "${GITHUB_EVENT_NAME}-${GITHUB_RUN_ID}" --arg error "$ERROR" '{version:"garden-feed-v1",generatedAt:$generatedAt,runUrl:$runUrl,harvests:[{operationId:$operationId,parcelId:"poulpe-fiction",seedId:null,title:"Mission GitHub en échec",status:"failed",completedAt:$generatedAt,error:$error,result:null,source:"github-actions"}]}' > octopus/garden-feed/latest.json
           fi
           COMPLETED="$(jq '[.harvests[] | select(.status == "completed" and .result != null and .notionUrl != null)] | length' octopus/garden-feed/latest.json)"
           echo "feed_valid=true" >> "$GITHUB_OUTPUT"
@@ -191,7 +203,22 @@ jobs:
           git pull --rebase origin main
           git push origin HEAD:main
 
-      - name: Assert successful autonomous harvest
+      - name: Close successful Poulpe issue
+        if: github.event_name == 'issues' && steps.dispatch.outcome == 'success' && steps.notion.outcome == 'success' && steps.feed.outputs.mission_completed == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.createComment({owner: context.repo.owner, repo: context.repo.repo, issue_number: context.issue.number, body: '🌾 Mission terminée. La récolte éditable Notion et le Garden Feed sont prêts.'});
+            await github.rest.issues.update({owner: context.repo.owner, repo: context.repo.repo, issue_number: context.issue.number, state: 'closed'});
+
+      - name: Report failed Poulpe issue
+        if: always() && github.event_name == 'issues' && !(steps.dispatch.outcome == 'success' && steps.notion.outcome == 'success' && steps.feed.outputs.mission_completed == 'true')
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.createComment({owner: context.repo.owner, repo: context.repo.repo, issue_number: context.issue.number, body: '⚠️ La mission n’a pas produit de récolte Notion valide. L’issue reste ouverte.'});
+
+      - name: Assert successful harvest
         if: always()
         shell: bash
         run: |
