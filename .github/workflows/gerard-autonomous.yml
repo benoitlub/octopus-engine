@@ -1,0 +1,156 @@
+name: Gerard autonomous life
+
+on:
+  schedule:
+    - cron: "17 */6 * * *"
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: Cycle à lancer
+        required: false
+        default: auto
+        type: choice
+        options:
+          - auto
+          - cultivate
+          - dream
+          - play
+      force:
+        description: Lancer même si une récolte récente existe
+        required: false
+        default: true
+        type: boolean
+
+concurrency:
+  group: gerard-autonomous-life
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  decide:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      should_run: ${{ steps.decision.outputs.should_run }}
+      mission_json: ${{ steps.mission.outputs.mission }}
+      mode: ${{ steps.decision.outputs.mode }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Choose Gerard activity
+        id: decision
+        shell: bash
+        env:
+          REQUESTED_MODE: ${{ github.event_name == 'workflow_dispatch' && inputs.mode || 'auto' }}
+          FORCE_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.force || false }}
+        run: |
+          set -euo pipefail
+
+          HOUR="$(date -u +%H)"
+          MODE="$REQUESTED_MODE"
+          if [ "$MODE" = "auto" ]; then
+            case "$HOUR" in
+              00|01|02|03|04|05) MODE="dream" ;;
+              06|07|08|09|10|11) MODE="cultivate" ;;
+              12|13|14|15|16|17) MODE="play" ;;
+              *) MODE="cultivate" ;;
+            esac
+          fi
+
+          SHOULD_RUN=true
+          REASON="Gerard chose a $MODE cycle"
+          FEED="garden-feed/latest.json"
+          NOW_EPOCH="$(date -u +%s)"
+          MAX_AGE_SECONDS=$((24 * 60 * 60))
+
+          if [ "$FORCE_RUN" != "true" ] && [ "$MODE" = "cultivate" ] && [ -s "$FEED" ] && jq -e '.harvests | type == "array"' "$FEED" >/dev/null 2>&1; then
+            LAST_COMPLETED="$(jq -r '[.harvests[] | select(.status == "completed") | .completedAt] | map(select(. != null)) | sort | last // empty' "$FEED")"
+            if [ -n "$LAST_COMPLETED" ]; then
+              LAST_EPOCH="$(date -u -d "$LAST_COMPLETED" +%s 2>/dev/null || echo 0)"
+              AGE=$((NOW_EPOCH - LAST_EPOCH))
+              if [ "$LAST_EPOCH" -gt 0 ] && [ "$AGE" -lt "$MAX_AGE_SECONDS" ]; then
+                SHOULD_RUN=false
+                REASON="a successful cultivation already exists within the last 24 hours"
+              fi
+            fi
+          fi
+
+          echo "mode=$MODE" >> "$GITHUB_OUTPUT"
+          echo "should_run=$SHOULD_RUN" >> "$GITHUB_OUTPUT"
+          echo "reason=$REASON" >> "$GITHUB_OUTPUT"
+          echo "Gerard: mode=$MODE run=$SHOULD_RUN — $REASON"
+
+      - name: Build living mission
+        if: steps.decision.outputs.should_run == 'true'
+        id: mission
+        shell: bash
+        env:
+          MODE: ${{ steps.decision.outputs.mode }}
+          REASON: ${{ steps.decision.outputs.reason }}
+        run: |
+          set -euo pipefail
+          OPERATION_ID="gerard-${MODE}-$(date -u +%Y%m%dT%H%M%SZ)"
+
+          case "$MODE" in
+            dream)
+              TITLE="Rêve exploratoire de Gérard"
+              OBJECTIVE="Explorer librement les connaissances disponibles, relier des idées éloignées et rapporter au jardin une piste nouvelle, clairement marquée comme hypothèse à vérifier."
+              CAPABILITIES='["knowledge.search","content.article.write"]'
+              ;;
+            play)
+              TITLE="Jeu expérimental de Gérard"
+              OBJECTIVE="Tester sans risque plusieurs combinaisons d'outils, formats ou stratégies sur une parcelle, comparer les résultats et rapporter uniquement l'expérience réutilisable."
+              CAPABILITIES='["knowledge.search","copy.generate","content.social.write"]'
+              ;;
+            *)
+              TITLE="Cultivation autonome de Gérard"
+              OBJECTIVE="Choisir la parcelle qui mérite le plus d'attention, utiliser les connaissances disponibles et produire une récolte concrète, éditable et utile sans sollicitation humaine."
+              CAPABILITIES='["knowledge.search","content.article.write","landing.generate"]'
+              ;;
+          esac
+
+          MISSION="$(jq -cn \
+            --arg operationId "$OPERATION_ID" \
+            --arg title "$TITLE" \
+            --arg objective "$OBJECTIVE" \
+            --arg mode "$MODE" \
+            --arg reason "$REASON" \
+            --arg decidedAt "$(date -u +%Y-%m-%dT%H:%M:%S.000Z)" \
+            --argjson capabilities "$CAPABILITIES" \
+            '{
+              operationId: $operationId,
+              title: $title,
+              requiredCapabilities: $capabilities,
+              context: {
+                id: "poulpe-fiction",
+                objective: $objective,
+                constraints: [
+                  "Respecter les Constitutions Gérard, Core, Publisher et Garden",
+                  "Ne jamais inventer de source ou de résultat",
+                  "Ne réaliser aucune action externe sensible sans autorisation",
+                  "Rapporter au Garden une trace claire de ce qui a été observé, tenté, compris et produit"
+                ],
+                metadata: {
+                  source: "gerard-autonomous-life",
+                  activity: $mode,
+                  decidedAt: $decidedAt,
+                  decisionReason: $reason
+                }
+              }
+            }')"
+          echo "mission=$MISSION" >> "$GITHUB_OUTPUT"
+
+      - name: Record rest decision
+        if: steps.decision.outputs.should_run != 'true'
+        run: echo "Gérard reste au jardin — ${{ steps.decision.outputs.reason }}"
+
+  live:
+    needs: decide
+    if: needs.decide.outputs.should_run == 'true'
+    uses: ./.github/workflows/poulpe-runtime.yml
+    with:
+      mission_json: ${{ needs.decide.outputs.mission_json }}
+    secrets: inherit
