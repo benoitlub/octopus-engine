@@ -1,10 +1,9 @@
 /**
  * Octopus Engine — exports publics V1
  *
- * Le moteur expose des contrats d'exécution neutres. Les exports Garden
- * restent temporairement disponibles comme pont de compatibilité pendant
- * leur migration vers Poulpe Fiction ; ils seront retirés après validation
- * du nouveau propriétaire du domaine.
+ * Le moteur expose uniquement des contrats d'exécution neutres.
+ * Le domaine Garden (parcelles, Seeds, Sprouts, récoltes, Gérard) appartient
+ * à Poulpe Fiction : voir ADR-0008 (garden-ownership-and-neutral-engine-boundary).
  */
 
 export type {
@@ -68,19 +67,6 @@ export type {
 } from "./event-store.js";
 export { UniversalEventStore } from "./event-store.js";
 
-/** @deprecated Garden belongs to Poulpe Fiction. Kept temporarily for compatibility. */
-export type {
-  ParcelStatus,
-  ResourceKind,
-  GardenerDecision,
-  ParcelSnapshot,
-  ResourceNeed,
-  ParcelReport,
-  GardenReport,
-} from "./gardener.js";
-/** @deprecated Garden belongs to Poulpe Fiction. Kept temporarily for compatibility. */
-export { GardenerConsole } from "./gardener.js";
-
 export type {
   TentacleTheme,
   TentacleHealth,
@@ -91,15 +77,6 @@ export type {
   TentacleSelection,
 } from "./tentacle.js";
 export { TentacleRegistry } from "./tentacle.js";
-
-export type {
-  OctopusDaypart,
-  RhythmActivityKind,
-  RhythmContext,
-  RhythmActivity,
-  RhythmPlan,
-} from "./rhythm.js";
-export { OctopusRhythm, resolveDaypart } from "./rhythm.js";
 
 export type {
   PolicyDecision,
@@ -139,47 +116,6 @@ export type {
   AutonomousExecutor,
 } from "./autonomous-cycle.js";
 export { AutonomousCycle, isAutonomousSignal } from "./autonomous-cycle.js";
-
-/** @deprecated Garden domain belongs to Poulpe Fiction. */
-export type {
-  SeedKind,
-  SeedStatus,
-  CapabilityStability,
-  GuardianReaction,
-  SeedSignals,
-  SeedRecord,
-  SproutRecord,
-  CompostEntry,
-  CapabilityMetrics,
-  CapabilityRecord,
-  EvaluationFinding,
-  EvaluationRecord,
-} from "./garden-domain.js";
-
-/** @deprecated Garden domain belongs to Poulpe Fiction. */
-export type { ResonanceThresholds, ResonanceResult } from "./resonance-engine.js";
-/** @deprecated Garden domain belongs to Poulpe Fiction. */
-export { ResonanceEngine } from "./resonance-engine.js";
-/** @deprecated Garden domain belongs to Poulpe Fiction. */
-export type { EvaluateSeedResonanceCommand } from "./seed-resonance-command.js";
-/** @deprecated Garden domain belongs to Poulpe Fiction. */
-export { SeedResonanceCommandHandler } from "./seed-resonance-command.js";
-/** @deprecated Garden domain belongs to Poulpe Fiction. */
-export type { CreateSproutCommand } from "./create-sprout-command.js";
-/** @deprecated Garden domain belongs to Poulpe Fiction. */
-export { CreateSproutCommandHandler } from "./create-sprout-command.js";
-
-/** @deprecated Garden domain belongs to Poulpe Fiction. */
-export type {
-  MissionRecord,
-  ResourceUsageRecord,
-  HarvestRecord,
-  GardenState,
-} from "./garden-store.js";
-/** @deprecated Garden domain belongs to Poulpe Fiction. */
-export { GardenStore, createDemoGardenStore } from "./garden-store.js";
-/** @deprecated Garden domain belongs to Poulpe Fiction. */
-export { GardenProjector } from "./garden-projector.js";
 
 export type { OctopusStartResult } from "./octopus.js";
 export { OctopusEngine } from "./octopus.js";

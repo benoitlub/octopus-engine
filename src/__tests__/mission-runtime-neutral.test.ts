@@ -62,36 +62,8 @@ describe("MissionRuntime neutral execution contract", () => {
     expect(result.status).toBe("completed");
     expect(result.operationId).toBe("operation-1");
     expect(result.contextId).toBe("product-1");
-    expect(result.parcelId).toBeUndefined();
     expect(result.output.text).toContain("Context: Product one");
     expect(result.output.text).not.toContain("Parcel:");
-  });
-
-  it("keeps the parcel compatibility bridge for legacy callers", async () => {
-    const runtime = makeRuntime();
-    const result = await runtime.run({
-      id: "legacy-operation",
-      title: "Legacy mission",
-      objective: "Keep old clients working",
-      parcel: {
-        id: "parcel-1",
-        name: "Legacy parcel",
-        kind: "project",
-        objective: "Compatibility",
-        status: "watch",
-        signals: { freshness: 100, traction: 0, revenue: 0 },
-        notes: [],
-      },
-      requiredCapabilities: ["campaign.generate"],
-      preferredTheme: "marketing",
-      authorizedResources: ["mistral"],
-    });
-
-    expect(result.status).toBe("completed");
-    expect(result.operationId).toBe("legacy-operation");
-    expect(result.contextId).toBe("parcel-1");
-    expect(result.parcelId).toBe("parcel-1");
-    expect(result.output.text).toContain("Context: Legacy parcel");
   });
 
   it("exposes a structured landing-page artifact when requested by context metadata", async () => {

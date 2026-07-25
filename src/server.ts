@@ -2,22 +2,16 @@ import { serve } from "@hono/node-server";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { AdapterRegistry, type AdapterRegistrationInput } from "./adapter-registry.js";
-import { CreateSproutCommandHandler } from "./create-sprout-command.js";
 import type { ExecutionContext } from "./execution-contract.js";
-import type { SeedRecord } from "./garden-domain.js";
 import { isIntrinsicCapability } from "./intrinsic-capabilities.js";
 import { MissionLifecycle, type MissionLifecycleState } from "./mission-lifecycle.js";
 import { OctopusEngine } from "./octopus.js";
 import { projectObservationKnowledge } from "./observation-knowledge.js";
-import { renderGardenerPage } from "./gardener-page.js";
-import { SeedResonanceCommandHandler } from "./seed-resonance-command.js";
 
 const app = new Hono();
 const engine = new OctopusEngine();
 const adapters = new AdapterRegistry();
 const lifecycle = new MissionLifecycle();
-const seedResonance = new SeedResonanceCommandHandler(engine.events);
-const createSprout = new CreateSproutCommandHandler(engine.events);
 let lastStart: Awaited<ReturnType<OctopusEngine["start"]>> | null = null;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -59,18 +53,6 @@ function adapterInput(value: unknown): AdapterRegistrationInput | undefined {
   };
 }
 
-function isSeedRecord(value: unknown): value is SeedRecord {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
-  const seed = value as Partial<SeedRecord>;
-  const signals = seed.signals;
-  return typeof seed.id === "string" && typeof seed.parcelId === "string" && typeof seed.kind === "string" &&
-    typeof seed.title === "string" && typeof seed.content === "string" && typeof seed.status === "string" &&
-    typeof seed.createdAt === "string" && typeof seed.updatedAt === "string" && Boolean(signals) &&
-    typeof signals?.maturity === "number" && typeof signals.coherence === "number" &&
-    typeof signals.utility === "number" && typeof signals.confidence === "number" &&
-    typeof signals.estimatedCost === "number";
-}
-
 function missionEvent(missionId: string, state: MissionLifecycleState, payload: Record<string, unknown> = {}): void {
   engine.events.store.append({
     kind: `mission.${state}`,
@@ -100,7 +82,6 @@ app.get("/", (c) => c.json({
     observationKnowledge: "universal-observation-knowledge-v1",
     adapterRegistration: "octopus-adapter-registration-v1",
     adapterExecution: "octopus-adapter-execution-v1",
-    legacyGardenRoutes: "deprecated",
   },
   defaults: { capabilities: [], tentacles: [], resources: [] },
 }));
@@ -122,9 +103,6 @@ app.get("/brief", async (c) => {
   lastStart = await engine.start();
   return c.json({ brief: lastStart.brief, mission: lastStart.mission, resources: lastStart.resources });
 });
-app.get("/garden-ui", (c) => c.html(renderGardenerPage()));
-app.get("/gardener", (c) => c.html(renderGardenerPage()));
-app.get("/garden", (c) => c.json(engine.garden.getState()));
 app.get("/resources", async (c) => c.json(await engine.resources.inspect()));
 app.get("/adapters", (c) => c.json({ contract: "octopus-adapter-registration-v1", adapters: adapters.list() }));
 
@@ -147,24 +125,6 @@ app.post("/adapters/unregister", async (c) => {
   const removed = adapters.unregister(body.id);
   if (removed) await engine.events.emit("AdapterUnregistered", { adapterId: body.id, removedAt: new Date().toISOString() });
   return c.json({ status: removed ? "unregistered" : "not-found", adapterId: body.id }, removed ? 200 : 404);
-});
-
-app.post("/seeds/resonance", async (c) => {
-  const body = await jsonRecord(c);
-  if (!isSeedRecord(body.seed)) return c.json({ status: "failed", message: "A valid seed snapshot is required." }, 400);
-  return c.json({ status: "evaluated", seedId: body.seed.id, result: await seedResonance.execute({ seed: body.seed, proposedCapabilities: stringList(body.proposedCapabilities) }) });
-});
-
-app.post("/seeds/sprout", async (c) => {
-  const body = await jsonRecord(c);
-  if (!isSeedRecord(body.seed)) return c.json({ status: "failed", message: "A valid seed snapshot is required." }, 400);
-  if (body.decision !== "sprout") return c.json({ status: "failed", message: "An explicit sprout decision is required." }, 400);
-  try {
-    const sprout = await createSprout.execute({ seed: body.seed, decision: "sprout", rationale: typeof body.rationale === "string" ? body.rationale : undefined, proposedCapabilities: stringList(body.proposedCapabilities) });
-    return c.json({ status: "sprouted", seedId: body.seed.id, sprout });
-  } catch (error) {
-    return c.json({ status: "failed", message: error instanceof Error ? error.message : "Unable to create sprout." }, 409);
-  }
 });
 
 app.post("/mission", async (c) => {
