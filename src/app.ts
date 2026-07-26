@@ -179,8 +179,30 @@ app.post("/mission", async (c) => {
 
   const externalAdapter = adapters.select(requiredCapabilities);
   if (!externalAdapter) {
-    transition(operationId, "waiting-executor", "No registered adapter currently provides every required capability.", common);
-    return c.json({ status: "waiting-executor", operationId, missionId: operationId, contextId: context.id, summary: "Mission recorded and waiting for a compatible executor.", output: { requiredCapabilities }, lifecycle: lifecycle.get(operationId) }, 202);
+    const internal = await engine.runtime.run({
+      id: operationId,
+      title,
+      objective,
+      requiredCapabilities,
+      authorizedResources,
+      ...(typeof body.prompt === "string" ? { prompt: body.prompt } : {}),
+      context,
+    });
+
+    if (!internal.tentacleId) {
+      transition(operationId, "waiting-executor", "No registered adapter and no core resource currently provide every required capability.", common);
+      return c.json({ status: "waiting-executor", operationId, missionId: operationId, contextId: context.id, summary: "Mission recorded and waiting for a compatible executor.", output: { requiredCapabilities }, lifecycle: lifecycle.get(operationId) }, 202);
+    }
+
+    transition(operationId, "executing", "Core Mistral resource selected.", { ...common, executorId: internal.tentacleId });
+    if (internal.status === "completed") {
+      transition(operationId, "completed", internal.summary, { ...common, executorId: internal.tentacleId, output: internal.output });
+    } else if (internal.status === "waiting-authorization") {
+      transition(operationId, "waiting-authorization", internal.summary, { ...common, executorId: internal.tentacleId, output: internal.output ?? {} });
+    } else {
+      transition(operationId, "failed", internal.summary, { ...common, executorId: internal.tentacleId, output: internal.output ?? {} });
+    }
+    return c.json({ ...internal, operationId, missionId: operationId, contextId: context.id, lifecycle: lifecycle.get(operationId) });
   }
 
   transition(operationId, "waiting-executor", "Compatible adapter selected.", { ...common, executorId: externalAdapter.id });

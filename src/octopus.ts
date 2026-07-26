@@ -1,8 +1,9 @@
 import { EventBus } from "./event-bus.js";
-import { TentacleRegistry } from "./tentacle.js";
-import { PolicyManager } from "./policy.js";
+import { TentacleRegistry, type TentacleProfile } from "./tentacle.js";
+import { PolicyManager, type ResourcePolicyRule } from "./policy.js";
 import { ResourceManager } from "./resource-manager.js";
 import { MissionRuntime, type RuntimeMissionResult } from "./mission-runtime.js";
+import { MistralResource } from "./resources/mistral-resource.js";
 
 export interface OctopusStartResult {
   brief: string;
@@ -10,11 +11,45 @@ export interface OctopusStartResult {
   mission?: RuntimeMissionResult;
 }
 
+const CORE_CAPABILITY_IDS = [
+  "knowledge.search",
+  "copy.generate",
+  "content.article.write",
+  "content.social.write",
+  "landing.generate",
+];
+
+function buildCoreTentacle(): TentacleProfile {
+  return {
+    id: "octopus-core",
+    name: "Octopus Core (Mistral)",
+    theme: "custom",
+    health: "trained",
+    capabilities: CORE_CAPABILITY_IDS.map((id) => ({ id, description: `Capacité générique portée par le cœur d'Octopus (${id}).` })),
+    resources: [{
+      id: "mistral",
+      name: "Mistral AI",
+      capabilityIds: CORE_CAPABILITY_IDS,
+      reliability: 80,
+      costLevel: "low",
+      requiresAuthorization: false,
+    }],
+    missionCount: 0,
+    successRate: 100,
+    load: 0,
+  };
+}
+
+const CORE_POLICY_RULES: ResourcePolicyRule[] = [
+  { resourceId: "mistral", decision: "allow", reason: "Ressource Mistral du cœur, pré-autorisée pour la génération de texte standard." },
+];
+
 /**
- * Octopus Engine starts neutral: no domain tentacle, capability, Garden
- * concept or external resource is embedded in the core. Applications
- * (Poulpe Fiction, Publisher, games...) register their own adapters and
- * executors outside this package. See ADR-0008.
+ * Octopus Engine starts with a single generic Mistral-backed tentacle as its
+ * only built-in capability, used when no external adapter (Poulpe Fiction,
+ * Publisher, games...) already covers the required capabilities. Domain
+ * knowledge, Garden concepts and app-specific logic remain outside the core.
+ * See ADR-0008.
  */
 export class OctopusEngine {
   readonly events = new EventBus();
@@ -23,8 +58,8 @@ export class OctopusEngine {
   readonly runtime: MissionRuntime;
 
   constructor() {
-    this.tentacles = new TentacleRegistry([]);
-    this.resources = new ResourceManager([], new PolicyManager([]));
+    this.tentacles = new TentacleRegistry([buildCoreTentacle()]);
+    this.resources = new ResourceManager([new MistralResource()], new PolicyManager(CORE_POLICY_RULES));
     this.runtime = new MissionRuntime(this.tentacles, this.resources);
   }
 
@@ -42,7 +77,7 @@ export class OctopusEngine {
     return [
       "🐙 Octopus Engine",
       "Moteur d'exécution neutre, en ligne.",
-      "Exécuteurs : aucun adaptateur externe enregistré.",
+      "Ressource propre : Mistral AI (génération de texte générique).",
     ].join("\n");
   }
 }
