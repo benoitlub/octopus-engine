@@ -32,7 +32,8 @@
     "@types/node": "^24.0.0",
     "typescript": "^5.9.0",
     "vitest": "^4.1.9",
-    "tsx": "^4.21.0"
+    "tsx": "^4.21.0",
+    "wrangler": "^4.114.0"
   },
   "keywords": ["octopus", "engine", "coordinator", "guardian", "workflow"],
   "license": "MIT"

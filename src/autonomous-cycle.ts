@@ -1,5 +1,3 @@
-import { createHash } from "node:crypto";
-
 export type AutonomousJobStatus =
   | "queued"
   | "running"
@@ -43,10 +41,15 @@ function now(): string {
 }
 
 function fingerprint(signal: AutonomousSignal): string {
-  return createHash("sha256")
-    .update(JSON.stringify({ id: signal.id, source: signal.source, title: signal.title, objective: signal.objective }))
-    .digest("hex")
-    .slice(0, 20);
+  const data = JSON.stringify({ id: signal.id, source: signal.source, title: signal.title, objective: signal.objective });
+  // Hash non cryptographique (FNV-1a), suffisant pour une clé d'idempotence,
+  // synchrone et portable partout (Node, Cloudflare Workers, navigateur).
+  let hash = 0x811c9dc5;
+  for (let i = 0; i < data.length; i += 1) {
+    hash ^= data.charCodeAt(i);
+    hash = Math.imul(hash, 0x01000193);
+  }
+  return (hash >>> 0).toString(16).padStart(8, "0");
 }
 
 /**
