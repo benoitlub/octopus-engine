@@ -8,7 +8,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - run: npm install -g pnpm
-      - run: pnpm install --ignore-scripts
-      - run: pnpm run typecheck || pnpm tsc --noEmit
-      - run: pnpm run build || pnpm run test || echo "No build/test scripts"
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run test
+      - run: npm run build
+      
