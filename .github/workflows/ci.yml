@@ -9,7 +9,6 @@ jobs:
         with:
           node-version: '22'
       - run: npm install -g pnpm
-      - run: pnpm install
+      - run: pnpm install --ignore-scripts
       - run: pnpm run typecheck || pnpm tsc --noEmit
       - run: pnpm run build || pnpm run test || echo "No build/test scripts"
-      
