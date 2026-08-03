@@ -1,7 +1,4 @@
-const API_URL = 
-  (typeof process !== 'undefined' && process.env?.VITE_OCTOPUS_API_URL) ||
-  (typeof import.meta !== 'undefined' && import.meta.env?.VITE_OCTOPUS_API_URL) ||
-  'http://localhost:3000';
+const API_URL = (import.meta as any).env?.VITE_OCTOPUS_API_URL || 'http://localhost:3000';
 export interface MissionContext {
   id: string;
   label?: string;
