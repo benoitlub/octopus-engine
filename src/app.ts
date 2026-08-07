@@ -7,7 +7,7 @@ import { MissionLifecycle, type MissionLifecycleState } from "./mission-lifecycl
 import { OctopusEngine } from "./octopus.js";
 import { projectObservationKnowledge } from "./observation-knowledge.js";
 
-const app = new Hono();
+const app: Hono = new Hono();
 const engine = new OctopusEngine();
 const adapters = new AdapterRegistry();
 const lifecycle = new MissionLifecycle();
