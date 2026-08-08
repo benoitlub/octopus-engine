@@ -160,22 +160,32 @@ jobs:
         if: always()
         shell: bash
         run: |
-          set -u
+          # GitHub Actions invokes `shell: bash` steps with `-e` (errexit)
+          # regardless of what's set below — a single failing jq call used
+          # to abort this whole reporting step before it could write any
+          # output, which then made the unrelated "Assert successful
+          # harvest" step fail even when the mission itself had already
+          # completed successfully. This step only builds a report; it must
+          # never be able to make a real success look like a failure.
+          set +e
           mkdir -p curation-report octopus/garden-feed
           cp octopus.log curation-report/octopus.log 2>/dev/null || true
           cp publisher.log curation-report/publisher.log 2>/dev/null || true
           STORE="octopus/$OCTOPUS_WAKE_STORE"
           if [ -s "$STORE" ] && jq -e '.wakes | type == "array"' "$STORE" >/dev/null 2>&1; then
             cp "$STORE" curation-report/wakes.json
-            jq '{version,summary:{total:(.wakes|length),completed:([.wakes[]|select(.status=="completed")]|length),failed:([.wakes[]|select(.status=="failed")]|length)},wakes:[.wakes[]|{id,status,lastCompletedAt,lastError,lastResult}]}' "$STORE" > curation-report/summary.json
-            jq --arg generatedAt "$(date -u +%Y-%m-%dT%H:%M:%S.000Z)" --arg runUrl "https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}" '{version:"garden-feed-v1",generatedAt:$generatedAt,runUrl:$runUrl,harvests:[.wakes[]|{operationId:(.mission.operationId // .lastResult.operationId),parcelId:(.mission.context.metadata.parcelId // .mission.context.id),seedId:(.mission.context.metadata.seedId // .mission.context.metadata.knowledgeSlug),title:(.mission.title // "Récolte"),status,completedAt:lastCompletedAt,error:lastError,result:lastResult,notionPageId:(.lastResult.notionPageId // null),notionUrl:(.lastResult.notionUrl // null),editorialSource:(.lastResult.editorialSource // null),source:"github-actions"}]}' "$STORE" > octopus/garden-feed/latest.json
+            jq '{version,summary:{total:(.wakes|length),completed:([.wakes[]|select(.status=="completed")]|length),failed:([.wakes[]|select(.status=="failed")]|length)},wakes:[.wakes[]|{id,status,lastCompletedAt,lastError,lastResult}]}' "$STORE" > curation-report/summary.json 2>/dev/null
+            jq --arg generatedAt "$(date -u +%Y-%m-%dT%H:%M:%S.000Z)" --arg runUrl "https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}" '{version:"garden-feed-v1",generatedAt:$generatedAt,runUrl:$runUrl,harvests:[.wakes[]|{operationId:(.mission.operationId // .lastResult.operationId),parcelId:(.mission.context.metadata.parcelId // .mission.context.id),seedId:(.mission.context.metadata.seedId // .mission.context.metadata.knowledgeSlug),title:(.mission.title // "Récolte"),status,completedAt:lastCompletedAt,error:lastError,result:lastResult,notionPageId:(.lastResult.notionPageId // null),notionUrl:(.lastResult.notionUrl // null),editorialSource:(.lastResult.editorialSource // null),source:"github-actions"}]}' "$STORE" > octopus/garden-feed/latest.json 2>/dev/null
           else
             ERROR="Le runner n'a produit aucun wake store JSON valide."
-            jq -n --arg generatedAt "$(date -u +%Y-%m-%dT%H:%M:%S.000Z)" --arg runUrl "https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}" --arg operationId "${GITHUB_EVENT_NAME}-${GITHUB_RUN_ID}" --arg error "$ERROR" '{version:"garden-feed-v1",generatedAt:$generatedAt,runUrl:$runUrl,harvests:[{operationId:$operationId,parcelId:"poulpe-fiction",seedId:null,title:"Mission GitHub en échec",status:"failed",completedAt:$generatedAt,error:$error,result:null,source:"github-actions"}]}' > octopus/garden-feed/latest.json
+            jq -n --arg generatedAt "$(date -u +%Y-%m-%dT%H:%M:%S.000Z)" --arg runUrl "https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}" --arg operationId "${GITHUB_EVENT_NAME}-${GITHUB_RUN_ID}" --arg error "$ERROR" '{version:"garden-feed-v1",generatedAt:$generatedAt,runUrl:$runUrl,harvests:[{operationId:$operationId,parcelId:"poulpe-fiction",seedId:null,title:"Mission GitHub en échec",status:"failed",completedAt:$generatedAt,error:$error,result:null,source:"github-actions"}]}' > octopus/garden-feed/latest.json 2>/dev/null
           fi
-          COMPLETED="$(jq '[.harvests[] | select(.status == "completed" and .result != null and .notionUrl != null)] | length' octopus/garden-feed/latest.json)"
+          if [ ! -s octopus/garden-feed/latest.json ] || ! jq -e '.harvests | type == "array"' octopus/garden-feed/latest.json >/dev/null 2>&1; then
+            echo '{"version":"garden-feed-v1","harvests":[]}' > octopus/garden-feed/latest.json
+          fi
+          COMPLETED="$(jq '[.harvests[]? | select(.status == "completed" and .result != null and .notionUrl != null)] | length' octopus/garden-feed/latest.json 2>/dev/null)"
           echo "feed_valid=true" >> "$GITHUB_OUTPUT"
-          if [ "$COMPLETED" -gt 0 ]; then echo "mission_completed=true" >> "$GITHUB_OUTPUT"; else echo "mission_completed=false" >> "$GITHUB_OUTPUT"; fi
+          if [ "${COMPLETED:-0}" -gt 0 ] 2>/dev/null; then echo "mission_completed=true" >> "$GITHUB_OUTPUT"; else echo "mission_completed=false" >> "$GITHUB_OUTPUT"; fi
 
       - name: Publish Garden feed to main
         if: always() && steps.feed.outputs.feed_valid == 'true'
