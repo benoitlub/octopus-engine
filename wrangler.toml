@@ -1,5 +1,7 @@
-# Deployed via .github/workflows/deploy-worker.yml on push to main
-# (Cloudflare API token/account id added to repo secrets).
-name = "octopus-engine"
+# Deployed via .github/workflows/deploy-worker.yml on push to main.
+# Name matches the Worker resource already created on Cloudflare
+# (octopus-engine-app) — confirmed with the user, the API token scope
+# expects this exact name.
+name = "octopus-engine-app"
 main = "src/worker.ts"
 compatibility_date = "2024-11-01"
