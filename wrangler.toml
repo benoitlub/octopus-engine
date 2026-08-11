@@ -1,4 +1,6 @@
 # Deployed via .github/workflows/deploy-worker.yml on push to main.
+# Cloudflare secrets now added to this repo (were on poulpe-fiction's
+# instead — repo secrets never share across repos).
 # Name matches the Worker resource already created on Cloudflare
 # (octopus-engine-app) — confirmed with the user, the API token scope
 # expects this exact name.
