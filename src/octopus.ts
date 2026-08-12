@@ -3,12 +3,16 @@ import { TentacleRegistry, type TentacleProfile } from "./tentacle.js";
 import { PolicyManager, type ResourcePolicyRule } from "./policy.js";
 import { ResourceManager } from "./resource-manager.js";
 import { MissionRuntime, type RuntimeMissionResult } from "./mission-runtime.js";
-import { MistralResource } from "./resources/mistral-resource.js";
+import { MistralResource, type MistralResourceOptions } from "./resources/mistral-resource.js";
 
 export interface OctopusStartResult {
   brief: string;
   resources: Awaited<ReturnType<ResourceManager["inspect"]>>;
   mission?: RuntimeMissionResult;
+}
+
+export interface OctopusEngineOptions {
+  mistral?: MistralResourceOptions;
 }
 
 const CORE_CAPABILITY_IDS = [
@@ -57,9 +61,12 @@ export class OctopusEngine {
   readonly resources: ResourceManager;
   readonly runtime: MissionRuntime;
 
-  constructor() {
+  constructor(options: OctopusEngineOptions = {}) {
     this.tentacles = new TentacleRegistry([buildCoreTentacle()]);
-    this.resources = new ResourceManager([new MistralResource()], new PolicyManager(CORE_POLICY_RULES));
+    this.resources = new ResourceManager(
+      [new MistralResource(options.mistral)],
+      new PolicyManager(CORE_POLICY_RULES),
+    );
     this.runtime = new MissionRuntime(this.tentacles, this.resources);
   }
 
