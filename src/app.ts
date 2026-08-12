@@ -7,8 +7,13 @@ import { MissionLifecycle, type MissionLifecycleState } from "./mission-lifecycl
 import { OctopusEngine } from "./octopus.js";
 import { projectObservationKnowledge } from "./observation-knowledge.js";
 
-const app: Hono = new Hono();
-const engine = new OctopusEngine();
+interface Env {
+  MISTRAL_API_KEY?: string;
+  MISTRAL_MODEL?: string;
+}
+
+const app: Hono<{ Bindings: Env }> = new Hono();
+let engine: OctopusEngine | undefined;
 const adapters = new AdapterRegistry();
 const lifecycle = new MissionLifecycle();
 let lastStart: Awaited<ReturnType<OctopusEngine["start"]>> | null = null;
@@ -53,7 +58,7 @@ function adapterInput(value: unknown): AdapterRegistrationInput | undefined {
 }
 
 function missionEvent(missionId: string, state: MissionLifecycleState, payload: Record<string, unknown> = {}): void {
-  engine.events.store.append({
+  engine!.events.store.append({
     kind: `mission.${state}`,
     streamId: missionId,
     source: "octopus-engine",
@@ -68,6 +73,18 @@ function transition(missionId: string, state: MissionLifecycleState, reason?: st
 }
 
 app.use("*", cors({ origin: "*", allowMethods: ["GET", "POST", "OPTIONS"], allowHeaders: ["Content-Type"] }));
+
+app.use("*", async (c, next) => {
+  if (!engine) {
+    engine = new OctopusEngine({
+      mistral: {
+        apiKey: c.env.MISTRAL_API_KEY,
+        model: c.env.MISTRAL_MODEL,
+      },
+    });
+  }
+  await next();
+});
 
 app.get("/", (c) => c.json({
   name: "octopus-engine",
@@ -88,21 +105,21 @@ app.get("/", (c) => c.json({
 app.get("/health", async (c) => c.json({
   status: "alive",
   mode: "neutral-core",
-  eventCount: engine.events.store.all().length,
+  eventCount: engine!.events.store.all().length,
   adapters: adapters.list().map(({ id, name, version, capabilities, healthUrl, updatedAt }) => ({ id, name, version, capabilities, healthUrl, updatedAt })),
-  tentacles: engine.tentacles.list(),
-  resources: await engine.resources.inspect(),
+  tentacles: engine!.tentacles.list(),
+  resources: await engine!.resources.inspect(),
 }));
-app.get("/events", (c) => c.json({ events: engine.events.store.all() }));
+app.get("/events", (c) => c.json({ events: engine!.events.store.all() }));
 app.get("/missions/:id", (c) => {
-  const mission = engine.events.store.projectMission(c.req.param("id"));
+  const mission = engine!.events.store.projectMission(c.req.param("id"));
   return mission ? c.json(mission) : c.json({ status: "not-found" }, 404);
 });
 app.get("/brief", async (c) => {
-  lastStart = await engine.start();
+  lastStart = await engine!.start();
   return c.json({ brief: lastStart.brief, mission: lastStart.mission, resources: lastStart.resources });
 });
-app.get("/resources", async (c) => c.json(await engine.resources.inspect()));
+app.get("/resources", async (c) => c.json(await engine!.resources.inspect()));
 app.get("/adapters", (c) => c.json({ contract: "octopus-adapter-registration-v1", adapters: adapters.list() }));
 
 app.post("/adapters/register", async (c) => {
@@ -111,7 +128,7 @@ app.post("/adapters/register", async (c) => {
   if (!input) return c.json({ status: "failed", code: "INVALID_ADAPTER", message: "A valid adapter registration is required." }, 400);
   try {
     const adapter = adapters.register(input);
-    await engine.events.emit("AdapterRegistered", { adapterId: adapter.id, capabilities: adapter.capabilities, updatedAt: adapter.updatedAt });
+    await engine!.events.emit("AdapterRegistered", { adapterId: adapter.id, capabilities: adapter.capabilities, updatedAt: adapter.updatedAt });
     return c.json({ status: "registered", contract: "octopus-adapter-registration-v1", adapter }, 201);
   } catch (error) {
     return c.json({ status: "failed", code: "INVALID_ADAPTER", message: error instanceof Error ? error.message : "Adapter registration failed." }, 400);
@@ -122,7 +139,7 @@ app.post("/adapters/unregister", async (c) => {
   const body = await jsonRecord(c);
   if (typeof body.id !== "string" || !body.id.trim()) return c.json({ status: "failed", message: "Adapter id is required." }, 400);
   const removed = adapters.unregister(body.id);
-  if (removed) await engine.events.emit("AdapterUnregistered", { adapterId: body.id, removedAt: new Date().toISOString() });
+  if (removed) await engine!.events.emit("AdapterUnregistered", { adapterId: body.id, removedAt: new Date().toISOString() });
   return c.json({ status: removed ? "unregistered" : "not-found", adapterId: body.id }, removed ? 200 : 404);
 });
 
@@ -150,15 +167,15 @@ app.post("/mission", async (c) => {
     const observation = context.metadata?.event ?? context.metadata?.observation ?? context.metadata ?? {};
     let knowledge: ReturnType<typeof projectObservationKnowledge> | undefined;
     if (requiredCapabilities.includes("observation.receive")) {
-      const observationEvent = engine.events.store.append({
+      const observationEvent = engine!.events.store.append({
         kind: "observation.received",
         streamId: context.id,
         source: typeof context.metadata?.source === "string" ? context.metadata.source : "external-application",
         correlationId: operationId,
         payload: isRecord(observation) ? observation : { value: observation },
       });
-      knowledge = projectObservationKnowledge(observationEvent, engine.events.store.all());
-      engine.events.store.append({
+      knowledge = projectObservationKnowledge(observationEvent, engine!.events.store.all());
+      engine!.events.store.append({
         kind: "observation.recorded",
         streamId: context.id,
         source: "octopus-engine",
@@ -179,7 +196,7 @@ app.post("/mission", async (c) => {
 
   const externalAdapter = adapters.select(requiredCapabilities);
   if (!externalAdapter) {
-    const internal = await engine.runtime.run({
+    const internal = await engine!.runtime.run({
       id: operationId,
       title,
       objective,
