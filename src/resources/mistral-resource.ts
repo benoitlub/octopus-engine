@@ -35,8 +35,8 @@ export class MistralResource implements OctopusResource {
   private readonly baseUrl: string;
 
   constructor(options: MistralResourceOptions = {}) {
-    this.apiKey = options.apiKey ?? process.env.MISTRAL_API_KEY ?? "";
-    this.model = options.model ?? process.env.MISTRAL_MODEL ?? "mistral-large-latest";
+    this.apiKey = options.apiKey ?? "";
+    this.model = options.model ?? "mistral-large-latest";
     this.baseUrl = options.baseUrl ?? "https://api.mistral.ai/v1";
   }
 
