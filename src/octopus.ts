@@ -21,6 +21,7 @@ const CORE_CAPABILITY_IDS = [
   "content.article.write",
   "content.social.write",
   "landing.generate",
+  "game.challenge.suggest",
 ];
 
 function buildCoreTentacle(): TentacleProfile {
