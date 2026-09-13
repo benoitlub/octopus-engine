@@ -67,8 +67,12 @@ async function handleFeuchLink(request: Request, env: WorkerEnv): Promise<Respon
   const match = url.pathname.match(/^\/feuch-link\/room\/([A-Za-z2-9]{6})\/(status|socket)$/);
   if (!match) return json({ status: 'not-found' }, 404);
 
-  const code = match[1].toUpperCase();
-  const action = match[2];
+  const codeCapture = match[1];
+  const actionCapture = match[2];
+  if (!codeCapture || !actionCapture) return json({ status: 'invalid-room' }, 400);
+
+  const code = codeCapture.toUpperCase();
+  const action = actionCapture;
   const stub = stubFor(env, code);
   if (!stub) return json({ status: 'invalid-room' }, 400);
 
