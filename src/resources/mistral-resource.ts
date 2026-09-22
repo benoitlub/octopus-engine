@@ -27,6 +27,17 @@ function estimateCostEur(model: string, usage?: MistralUsagePayload): number | u
   return Number(((promptTokens / 1_000_000) * promptPerMillion + (completionTokens / 1_000_000) * completionPerMillion).toFixed(6));
 }
 
+// Surface the provider's diagnostic without exposing credentials or arbitrary response bodies.
+function mistralErrorDetail(body: unknown, apiKey: string): string {
+  if (!body || typeof body !== "object" || Array.isArray(body)) return "";
+  const data = body as Record<string, unknown>;
+  const error = data.error && typeof data.error === "object" && !Array.isArray(data.error)
+    ? data.error as Record<string, unknown> : data;
+  const parts = [error.code, error.type, error.message].filter((value): value is string => typeof value === "string" && Boolean(value.trim()));
+  const detail = parts.join(" · ").slice(0, 500);
+  return detail.replaceAll(apiKey, "[REDACTED]").replace(/Bearer\\s+[^\\s]+/gi, "Bearer [REDACTED]");
+}
+
 export class MistralResource implements OctopusResource {
   readonly id = "mistral";
   readonly name = "Mistral AI";
@@ -87,11 +98,13 @@ export class MistralResource implements OctopusResource {
       const durationMs = Date.now() - startedAt;
 
       if (!response.ok) {
+        const errorBody: unknown = await response.json().catch(() => null);
+        const detail = mistralErrorDetail(errorBody, this.apiKey);
         return {
           resourceId: this.id,
           status: "error",
           output: {},
-          message: `Mistral API error: ${response.status} ${response.statusText}`,
+          message: `Mistral API error: ${response.status} ${response.statusText}${detail ? ` · ${detail}` : ""} (model: ${this.model})`,
           usage: { model: this.model, durationMs },
         };
       }
