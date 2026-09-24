@@ -115,7 +115,7 @@ export class FeuchRoom {
       const server = pair[1];
       (server as WebSocket & { serializeAttachment?: (value: unknown) => void }).serializeAttachment?.({ role });
       this.state.acceptWebSocket(server);
-      this.broadcast({ type: 'participant.joined', role, at: Date.now() }, server);
+      this.broadcast({ type: 'participant.joined', role, connected: this.connectedRoles(), at: Date.now() });
       void this.sendSnapshot(server, role);
       return new Response(null, { status: 101, webSocket: client } as ResponseInit & { webSocket: WebSocket });
     }
@@ -198,7 +198,7 @@ export class FeuchRoom {
 
   webSocketClose(socket: WebSocket, code: number, reason: string): void {
     const role = attachmentRole(socket);
-    if (role) this.broadcast({ type: 'participant.left', role, code, reason, at: Date.now() }, socket);
+    if (role) this.broadcast({ type: 'participant.left', role, connected: this.connectedRoles().filter(r => r !== role), code, reason, at: Date.now() }, socket);
   }
 
   webSocketError(socket: WebSocket): void {
@@ -258,6 +258,8 @@ export class FeuchRoom {
   private sendError(socket: WebSocket, code: string): void {
     socket.send(JSON.stringify({ type: 'error', code, serverAt: Date.now() }));
   }
+
+  private connectedRoles(): ParticipantRole[] { return [...new Set(this.state.getWebSockets().map(attachmentRole).filter((role): role is ParticipantRole => Boolean(role)))]; }
 
   private broadcast(payload: unknown, except?: WebSocket): void {
     const text = JSON.stringify(payload);
