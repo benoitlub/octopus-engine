@@ -78,8 +78,10 @@ app.use("*", async (c, next) => {
   if (!engine) {
     engine = new OctopusEngine({
       mistral: {
-        apiKey: c.env.MISTRAL_API_KEY,
-        model: c.env.MISTRAL_MODEL,
+        // Hono's c.env is populated by Worker bindings; the local Node server
+        // receives its credentials through process.env from GitHub Actions.
+        apiKey: c.env?.MISTRAL_API_KEY || (typeof process !== "undefined" ? process.env.MISTRAL_API_KEY : undefined),
+        model: c.env?.MISTRAL_MODEL || (typeof process !== "undefined" ? (process.env.MISTRAL_MODEL || process.env.AI_MODEL) : undefined),
       },
     });
   }
