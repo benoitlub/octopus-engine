@@ -1,0 +1,35 @@
+name: Diagnose Cloudflare token (read-only)
+
+on:
+  workflow_dispatch: {}
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify token and account without exposing secrets
+        shell: bash
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          set -euo pipefail
+          if [[ -z "${CLOUDFLARE_API_TOKEN:-}" ]]; then echo "::error::CLOUDFLARE_API_TOKEN is missing"; exit 1; fi
+          if [[ -z "${CLOUDFLARE_ACCOUNT_ID:-}" ]]; then echo "::error::CLOUDFLARE_ACCOUNT_ID is missing"; exit 1; fi
+          echo "Token and account secrets are present."
+          response=$(curl --silent --show-error --max-time 20 -w '\n%{http_code}' -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" -H 'Content-Type: application/json' https://api.cloudflare.com/client/v4/user/tokens/verify)
+          status="${response##*$'\n'}"
+          body="${response%$'\n'*}"
+          echo "Token verification HTTP status: $status"
+          BODY="$body" python3 - <<'PY'
+          import json, os
+          data=json.loads(os.environ['BODY'])
+          print('Token verified:', data.get('success'))
+          print('Token status:', (data.get('result') or {}).get('status', 'unknown'))
+          for error in data.get('errors', []):
+              print('Cloudflare error code:', error.get('code', 'unknown'))
+          if not data.get('success'): raise SystemExit(1)
+          PY
+          account_status=$(curl --silent --show-error --max-time 20 -o /dev/null -w '%{http_code}' -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}")
+          echo "Configured account access HTTP status: $account_status"
+          [[ "$account_status" == 200 ]] || exit 1
