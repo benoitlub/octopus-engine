@@ -47,7 +47,7 @@ export class MistralResource implements OctopusResource {
 
   constructor(options: MistralResourceOptions = {}) {
     this.apiKey = options.apiKey ?? "";
-    this.model = options.model ?? "mistral-large-latest";
+    this.model = options.model ?? "mistral-small-latest";
     this.baseUrl = options.baseUrl ?? "https://api.mistral.ai/v1";
   }
 
@@ -78,54 +78,65 @@ export class MistralResource implements OctopusResource {
     const startedAt = Date.now();
 
     try {
-      const response = await fetch(`${this.baseUrl}/chat/completions`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${this.apiKey}`,
-        },
-        body: JSON.stringify({
-          model: this.model,
-          messages: [
-            { role: "system", content: system },
-            { role: "user", content: prompt },
-          ],
-          temperature: 0.4,
-          max_tokens: 900,
-        }),
-      });
+      // Octopus remains the sole Mistral caller. Preserve Publisher's bounded
+      // model failover without allowing Publisher to bypass the engine.
+      const models = [...new Set([this.model, "ministral-8b-2512", "ministral-3b-2512"])];
+      for (let index = 0; index < models.length; index++) {
+        const model = models[index];
+        const response = await fetch(`${this.baseUrl}/chat/completions`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${this.apiKey}`,
+          },
+          body: JSON.stringify({
+            model,
+            messages: [
+              { role: "system", content: system },
+              { role: "user", content: prompt },
+            ],
+            temperature: 0.25,
+            max_tokens: 1200,
+          }),
+        });
 
-      const durationMs = Date.now() - startedAt;
+        const durationMs = Date.now() - startedAt;
+        if (!response.ok) {
+          const errorBody: unknown = await response.json().catch(() => null);
+          const detail = mistralErrorDetail(errorBody, this.apiKey);
+          const retryAfter = response.headers.get("retry-after");
+          const retrySeconds = retryAfter && /^\\d+$/.test(retryAfter) ? Number(retryAfter) : 0;
+          // A long provider cooldown should be honored by the next scheduled cycle.
+          if (response.status === 429 && retrySeconds <= 60 && index < models.length - 1) continue;
+          return {
+            resourceId: this.id,
+            status: "error",
+            output: {},
+            message: `Mistral API error: ${response.status} ${response.statusText}${detail ? ` · ${detail}` : ""} (model: ${model})${retryAfter ? ` retry-after=${retryAfter.slice(0, 60)}` : ""}`,
+            usage: { model, durationMs },
+          };
+        }
 
-      if (!response.ok) {
-        const errorBody: unknown = await response.json().catch(() => null);
-        const detail = mistralErrorDetail(errorBody, this.apiKey);
+        const data = (await response.json()) as MistralChatPayload;
+        const generatedText = data.choices?.[0]?.message?.content ?? "";
+        if (!generatedText.trim()) {
+          return { resourceId: this.id, status: "error", output: {}, message: `Empty Mistral response (model: ${model})`, usage: { model, durationMs } };
+        }
         return {
           resourceId: this.id,
-          status: "error",
-          output: {},
-          message: `Mistral API error: ${response.status} ${response.statusText}${detail ? ` · ${detail}` : ""} (model: ${this.model})`,
-          usage: { model: this.model, durationMs },
+          status: "success",
+          output: { text: generatedText, model },
+          usage: {
+            model,
+            promptTokens: data.usage?.prompt_tokens,
+            completionTokens: data.usage?.completion_tokens,
+            totalTokens: data.usage?.total_tokens,
+            durationMs,
+            estimatedCostEur: estimateCostEur(model, data.usage),
+          },
         };
       }
-
-      const data = (await response.json()) as MistralChatPayload;
-      return {
-        resourceId: this.id,
-        status: "success",
-        output: {
-          text: data.choices?.[0]?.message?.content ?? "",
-          model: this.model,
-        },
-        usage: {
-          model: this.model,
-          promptTokens: data.usage?.prompt_tokens,
-          completionTokens: data.usage?.completion_tokens,
-          totalTokens: data.usage?.total_tokens,
-          durationMs,
-          estimatedCostEur: estimateCostEur(this.model, data.usage),
-        },
-      };
+      return { resourceId: this.id, status: "error", output: {}, message: "No Mistral model succeeded." };
     } catch (error) {
       return {
         resourceId: this.id,
