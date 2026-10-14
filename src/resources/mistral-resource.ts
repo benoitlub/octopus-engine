@@ -132,7 +132,7 @@ export class MistralResource implements OctopusResource {
             completionTokens: data.usage?.completion_tokens,
             totalTokens: data.usage?.total_tokens,
             durationMs,
-            estimatedCostEur: estimateCostEur(model, data.usage),
+            ...(data.usage ? { estimatedCostEur: estimateCostEur(model, data.usage) } : {}),
           },
         };
       }
