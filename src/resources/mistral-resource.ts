@@ -82,7 +82,7 @@ export class MistralResource implements OctopusResource {
       // model failover without allowing Publisher to bypass the engine.
       const models = [...new Set([this.model, "ministral-8b-2512", "ministral-3b-2512"])];
       for (let index = 0; index < models.length; index++) {
-        const model = models[index];
+        const model = models[index] ?? this.model;
         const response = await fetch(`${this.baseUrl}/chat/completions`, {
           method: "POST",
           headers: {
