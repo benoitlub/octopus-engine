@@ -20,9 +20,9 @@ jobs:
         with:
           node-version: '22'
       - name: Install project dependencies
-        run: npm install --legacy-peer-deps
-      - name: Install Wrangler
-        run: npm install --no-save --legacy-peer-deps wrangler@4.119.0
+        run: npm ci --legacy-peer-deps
+      - name: Validate before deployment
+        run: npm run typecheck && npm test && npm run build
       - name: Deploy to Cloudflare Workers
         run: npx --no-install wrangler deploy
         env:

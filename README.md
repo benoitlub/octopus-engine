@@ -8,7 +8,7 @@ Il n'est ni Gérard, ni un chatbot, ni un système multi-agents généraliste. L
 
 ## Statut
 
-Version 0.3 — runtime minimal présent, documentation Core synchronisée avec la Constitution Notion v2.0.
+Architecture documentaire 0.3 — runtime minimal présent, documentation Core synchronisée avec la Constitution Notion v2.0. La version du package reste 0.1.0 ; ces deux numéros ne désignent pas la même chose.
 
 Le dépôt contient désormais un runtime minimal, Guardian, Coordinator, Garden et leurs tests. La documentation décrit à la fois les invariants actifs et les comportements encore à implémenter ; elle ne doit pas faire passer une intention future pour une fonctionnalité déjà disponible.
 
