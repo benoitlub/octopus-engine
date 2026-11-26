@@ -1,4 +1,4 @@
-name: Read actual autonomous harvest schedule
+name: Verify restored autonomous harvest loop
 on:
   push:
     branches: [diagnostic/mistral-key-comparison-20261126]
@@ -13,7 +13,7 @@ jobs:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
     steps:
-      - name: Read schedule and latest server iteration metadata only
+      - name: Verify deployed schedule and one bounded owner-requested cycle
         shell: bash
         run: |
           node --input-type=module <<'JS'
@@ -21,8 +21,10 @@ jobs:
           if(!token||!account) throw new Error('Cloudflare credentials unavailable');
           const response=await fetch('https://api.cloudflare.com/client/v4/accounts/'+account+'/workers/scripts/blacklace-publisher-worker/schedules',{headers:{Authorization:'Bearer '+token},signal:AbortSignal.timeout(20000)});
           const data=await response.json().catch(()=>({}));
-          console.log(JSON.stringify({type:'autonomous-harvest-schedules',httpStatus:response.status,success:data.success,schedules:data.result?.schedules?.map(x=>({cron:x.cron})),errorCodes:data.errors?.map(x=>x.code)}));
-          const latest=await fetch('https://blacklace-publisher-worker.benoitlubert.workers.dev/api/tentacles/iterations?limit=1',{signal:AbortSignal.timeout(20000)});
-          const payload=await latest.json().catch(()=>({}));
-          console.log(JSON.stringify({type:'latest-server-iteration',httpStatus:latest.status,configured:payload.configured,rows:payload.iterations?.map(x=>({createdAt:x.created_at,seedId:x.seed_id,number:x.iteration_number,mode:x.mode,hasText:typeof x.content==='string'&&!!x.content.trim(),hasVisual:!!x.visual_url}))}));
+          const schedules=data.result?.schedules||[];
+          console.log(JSON.stringify({type:'autonomous-harvest-schedules',httpStatus:response.status,success:data.success,schedules:schedules.map(x=>({cron:x.cron}))}));
+          if(!response.ok||!schedules.some(x=>x.cron==='*/15 * * * *')) throw new Error('Expected harvest schedule is not active');
+          const cycle=await fetch('https://blacklace-publisher-worker.benoitlubert.workers.dev/api/tentacles/run-cycle?limit=1',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({source:'owner-restart-verification'}),signal:AbortSignal.timeout(65000)});
+          const result=await cycle.json().catch(()=>({}));
+          console.log(JSON.stringify({type:'one-autonomous-cycle',httpStatus:cycle.status,status:result.status,processed:result.processed,results:result.results?.map(x=>({seedId:x.seedId,mode:x.mode,status:String(x.status||'').slice(0,500)}))}));
           JS
