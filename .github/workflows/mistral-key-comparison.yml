@@ -1,4 +1,4 @@
-name: Read Mistral account diagnostic capabilities
+name: Check Mistral account identity budget and deployed routes
 on:
   push:
     branches: [diagnostic/mistral-key-comparison-20261126]
@@ -8,20 +8,54 @@ permissions:
 jobs:
   inspect:
     runs-on: ubuntu-latest
-    timeout-minutes: 3
+    timeout-minutes: 4
     env:
       MISTRAL_API_KEY: ${{ secrets.MISTRAL_API_KEY }}
     steps:
-      - name: Discover official read-only account and billing diagnostic tools
+      - name: Official account diagnostics and minimal route comparison
         shell: bash
         run: |
           node --input-type=module <<'JS'
+          import {createHash} from 'node:crypto';
           const key=(process.env.MISTRAL_API_KEY||'').trim();
-          if(!key) throw new Error('Mistral key missing');
-          const response=await fetch('https://api.mistral.ai/mcp',{method:'POST',headers:{Authorization:'Bearer '+key,'Content-Type':'application/json',Accept:'application/json, text/event-stream'},body:JSON.stringify({jsonrpc:'2.0',id:1,method:'tools/list',params:{}}),signal:AbortSignal.timeout(30000)});
-          const raw=await response.text();
-          let messages=[];
-          try {messages=[JSON.parse(raw)];} catch {messages=raw.split('\n').filter(x=>x.startsWith('data:')).map(x=>{try{return JSON.parse(x.slice(5).trim());}catch{return null;}}).filter(Boolean);}
-          const catalog=messages.flatMap(x=>x.result?.tools||[]);
-          console.log(JSON.stringify({httpStatus:response.status,toolCount:catalog.length,errors:messages.map(x=>x.error).filter(Boolean),tools:catalog.filter(x=>/billing|budget|subscription|identity|whoami|current.user|organization|workspace/i.test(x.name+' '+x.description)).slice(0,20).map(x=>({name:x.name,description:x.description,inputSchema:x.inputSchema}))}));
+          if(!key)throw new Error('Mistral credential missing');
+          function decode(raw){try{return [JSON.parse(raw)];}catch{return raw.split('\n').filter(x=>x.startsWith('data:')).map(x=>{try{return JSON.parse(x.slice(5).trim());}catch{return null;}}).filter(Boolean);}}
+          async function readTool(name){
+            const response=await fetch('https://api.mistral.ai/mcp',{method:'POST',headers:{Authorization:'Bearer '+key,'Content-Type':'application/json',Accept:'application/json, text/event-stream'},body:JSON.stringify({jsonrpc:'2.0',id:1,method:'tools/call',params:{name,arguments:{}}}),signal:AbortSignal.timeout(30000)});
+            const messages=decode(await response.text());
+            const result=messages.find(x=>x.result)?.result;
+            let data=result?.structuredContent;
+            if(!data){for(const block of result?.content||[]){if(block.type==='text'){try{data=JSON.parse(block.text);break;}catch{}}}}
+            const fields=[];
+            function inspect(value,path='',depth=0){
+              if(depth>6)return;
+              if(value===null){fields.push({path,type:'null'});return;}
+              if(typeof value==='object'){for(const [k,v]of Object.entries(value))inspect(v,path?path+'.'+k:k,depth+1);return;}
+              if(typeof value==='boolean'){fields.push({path,type:'boolean',value});return;}
+              if(typeof value==='number'){fields.push({path,type:'number',sign:value===0?'zero':value>0?'positive':'negative'});return;}
+              if(typeof value==='string'){
+                if(['free','pro','team','education','pay_as_you_go','pay-as-you-go','blocked','stop','api','vibe','payg','block'].includes(value.toLowerCase()))fields.push({path,type:'enum',value});
+                else if(/email/i.test(path))fields.push({path,type:'email',knownOwner:['benoitlubert@gmail.com','lubertvlc@gmail.com','prohibitedvlc@gmail.com'].includes(value.toLowerCase())});
+                else if(/(^|[.])id$|uuid$/.test(path))fields.push({path,type:'identifier',fingerprint:createHash('sha256').update(value).digest('hex').slice(0,12)});
+                else if(/key.*name|name.*key/i.test(path))fields.push({path,type:'key-name',knownLabel:/^(octo|pulpito)$/i.test(value)?value:'other'});
+                else fields.push({path,type:'string'});
+              }
+            }
+            if(data)inspect(data);
+            console.log(JSON.stringify({diagnostic:name,httpStatus:response.status,error:messages.find(x=>x.error)?.error?.code,isError:result?.isError,fields}));
+          }
+          await readTool('whoami');
+          await readTool('get_usage_limits');
+          const prompt='Diagnostic : réponds uniquement OK.';
+          async function check(route,url,body,headers={}){
+            try{
+              const response=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json',...headers},body:JSON.stringify(body),signal:AbortSignal.timeout(60000)});
+              const data=await response.json().catch(()=>({}));
+              console.log(JSON.stringify({route,httpStatus:response.status,status:data.status,code:data.code,message:String(data.message||data.summary||data.error||'').replaceAll(key,'[REDACTED]').slice(0,600),reply:data.choices?.[0]?.message?.content||data.output?.text}));
+            }catch(e){console.log(JSON.stringify({route,errorType:e.name}));}
+          }
+          await check('GitHub existing key','https://api.mistral.ai/v1/chat/completions',{model:'ministral-8b-2512',messages:[{role:'user',content:prompt}],max_tokens:8,temperature:0},{Authorization:'Bearer '+key});
+          const mission=name=>({operationId:'key-recovery-'+name+'-'+crypto.randomUUID(),title:'Owner requested Mistral test',objective:prompt,prompt,context:{id:'credential-diagnostic',label:'Owner Mistral test'},requiredCapabilities:['copy.generate']});
+          await check('Octopus deployed','https://octopus-engine-app.benoitlubert.workers.dev/mission',mission('octopus'));
+          await check('Publisher deployed','https://blacklace-publisher-worker.benoitlubert.workers.dev/api/octopus-adapter/execute',{contract:'octopus-adapter-execution-v1',mission:mission('publisher')});
           JS
