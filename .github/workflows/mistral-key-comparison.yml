@@ -13,7 +13,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: benoitlub/blacklace-publisher-ai
-          ref: 95e067f200724e3011c6012d4a6a94aed126ac16
+          ref: c777f4d746d2bb4cf0d20b645f74c0d17d5bf307
       - uses: actions/setup-node@v4
         with:
           node-version: 24
