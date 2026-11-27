@@ -1,5 +1,6 @@
 import { app } from './app.js';
 import { FeuchRoom } from './feuch-room.js';
+import type { ConfiguredAdapterEnv } from './configured-adapter.js';
 
 type DurableObjectStubLike = { fetch(request: Request): Promise<Response> };
 type DurableObjectNamespaceLike = {
@@ -7,7 +8,7 @@ type DurableObjectNamespaceLike = {
   get(id: unknown): DurableObjectStubLike;
 };
 
-type WorkerEnv = {
+type WorkerEnv = ConfiguredAdapterEnv & {
   MISTRAL_API_KEY?: string;
   MISTRAL_MODEL?: string;
   FEUCH_ROOMS?: DurableObjectNamespaceLike;
