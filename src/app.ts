@@ -7,7 +7,9 @@ import { MissionLifecycle, type MissionLifecycleState } from "./mission-lifecycl
 import { OctopusEngine } from "./octopus.js";
 import { projectObservationKnowledge } from "./observation-knowledge.js";
 
-interface Env {
+import { configureAdapter, configuredAdapterFetch, type ConfiguredAdapterEnv } from "./configured-adapter.js";
+
+interface Env extends ConfiguredAdapterEnv {
   MISTRAL_API_KEY?: string;
   MISTRAL_MODEL?: string;
 }
@@ -85,6 +87,7 @@ app.use("*", async (c, next) => {
       },
     });
   }
+  configureAdapter(adapters, c.env ?? {});
   await next();
 });
 
@@ -227,7 +230,7 @@ app.post("/mission", async (c) => {
   transition(operationId, "waiting-executor", "Compatible adapter selected.", { ...common, executorId: externalAdapter.id });
   transition(operationId, "executing", "External adapter execution started.", { ...common, executorId: externalAdapter.id });
   try {
-    const external = await adapters.execute(externalAdapter, { operationId, title, objective, requiredCapabilities, authorizedResources, ...(typeof body.prompt === "string" ? { prompt: body.prompt } : {}), context });
+    const external = await adapters.execute(externalAdapter, { operationId, title, objective, requiredCapabilities, authorizedResources, ...(typeof body.prompt === "string" ? { prompt: body.prompt } : {}), context }, configuredAdapterFetch(externalAdapter, c.env ?? {}));
     if (external.status === "waiting-authorization") transition(operationId, "waiting-authorization", external.summary, { ...common, executorId: externalAdapter.id, output: external.output ?? {} });
     else if (external.status === "completed") transition(operationId, "completed", external.summary, { ...common, executorId: externalAdapter.id, output: external.output ?? {} });
     else transition(operationId, "failed", external.summary, { ...common, executorId: externalAdapter.id, output: external.output ?? {} });

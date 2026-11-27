@@ -10,6 +10,13 @@ compatibility_date = "2024-11-01"
 
 [vars]
 MISTRAL_MODEL = "ministral-8b-2512"
+EXECUTION_ADAPTER_ID = "publisher"
+EXECUTION_ADAPTER_URL = "https://blacklace-publisher-worker.benoitlubert.workers.dev/api/octopus-adapter/execute"
+EXECUTION_ADAPTER_CAPABILITIES = "content.generate,copy.generate,content.article.write,content.social.write,knowledge.search,tool.search,business.sources.search,tool.execute,social.publish"
+
+[[services]]
+binding = "EXECUTION_ADAPTER"
+service = "blacklace-publisher-worker"
 
 [durable_objects]
 bindings = [
